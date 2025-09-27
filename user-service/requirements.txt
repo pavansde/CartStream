@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic[email]
+databases[mysql]
+aiomysql
+SQLAlchemy
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+python-dotenv
+pymysql
+cryptography
+python-jose[cryptography]
