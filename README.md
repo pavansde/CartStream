@@ -1,3 +1,6 @@
+<!-- docker command to run mysql in terminal:  docker exec -it mysql-db mysql -u root -p12345 users -->
+
+
 # CartStream
 CartStream – Your seamless end‑to‑end eCommerce solution with FastAPI, MySQL &amp; React‑TailwindCSS. Fast, secure, role‑based, and designed for a stunning shopping journey.
 
