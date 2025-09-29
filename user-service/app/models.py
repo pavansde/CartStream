@@ -34,10 +34,19 @@ orders = Table(
     metadata,
     Column("id", Integer, primary_key=True),
     Column("customer_id", Integer, ForeignKey("users.id"), nullable=False),
+    Column("status", String(20), default="pending"),
+    Column("order_date", DateTime, default=datetime.utcnow),
+    Column("total_price", Float, nullable=False),
+)
+
+order_items = Table(
+    "order_items",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("order_id", Integer, ForeignKey("orders.id"), nullable=False),
     Column("item_id", Integer, ForeignKey("items.id"), nullable=False),
     Column("quantity", Integer, nullable=False, default=1),
-    Column("total_price", Float, nullable=False),
-    Column("status", String(20), default="pending"),  # pending, shipped, delivered, etc.
+    Column("line_total_price", Float, nullable=False),
 )
 
 wishlist = Table(

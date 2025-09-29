@@ -58,8 +58,8 @@ export default function Navbar() {
         {/* Desktop menu */}
         <div className="hidden md:flex space-x-6 items-center">
 
-          {/* Always show cart icon */}
-          {(!user || user.role !== "ShopOwner") && (
+          {/* Always show cart icon for customers */}
+          {user && user.role !== "ShopOwner" && user.role !== "admin" && (
             <Link to="/cart" className="relative hover:text-gray-300" aria-label="View cart">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -106,14 +106,12 @@ export default function Navbar() {
               )}
               {normalizedRole === "admin" && (
                 <>
-                  <Link to="/dashboard" className="hover:underline">Dashboard</Link>
-                  <Link to="/admin" className="hover:underline">Admin</Link>
-                  <Link to="/shop-owner/orders" className="hover:underline">Orders</Link>
-                  <Link to="/wishlist" className="hover:underline">Wishlist</Link>
+                  <Link to="/admin" className="hover:underline">Dashboard</Link>
                 </>
               )}
 
               {/* Notifications Bell */}
+              {user && user.role !== "admin" && (
               <button
                 onClick={() => navigate("/notifications")}
                 className="relative focus:outline-none"
@@ -138,6 +136,7 @@ export default function Navbar() {
                   </span>
                 )}
               </button>
+              )}
 
               <button
                 onClick={logout}

@@ -40,20 +40,23 @@ async def list_my_items(current_user=Depends(get_current_shop_owner)):
 # =====================
 @router.get("/admin/items", dependencies=[Depends(get_current_admin_user)])
 async def admin_list_items():
+    # print("Reached admin_list_items endpoint", flush=True)
     query = (
-        items.join(users, items.c.owner_id == users.c.id)
-        .select()
-        .with_only_columns(
-            items.c.id,
-            items.c.title,
-            items.c.description,
-            items.c.price,
-            items.c.stock,
-            users.c.username.label("owner_username"),
-            users.c.email.label("owner_email"),
-        )
+    items.outerjoin(users, items.c.owner_id == users.c.id)
+    .select()
+    .with_only_columns(
+        items.c.id,
+        items.c.title,
+        items.c.description,
+        items.c.price,
+        items.c.stock,
+        users.c.username.label("owner_username"),
+        users.c.email.label("owner_email"),
     )
+)
+
     results = await database.fetch_all(query)
+    # print(results)
     return [
         {**dict(row), "low_stock_alert": dict(row).get("stock", 0) < LOW_STOCK_THRESHOLD}
         for row in results

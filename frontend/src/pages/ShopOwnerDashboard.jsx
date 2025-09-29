@@ -282,7 +282,7 @@ export default function ShopOwnerDashboard() {
                   />
                 )}
                 <h2 className="font-semibold">{item.title}</h2>
-                <p>${item.price}</p>
+                <p>₹{item.price}</p>
                 <p>
                   Stock:{" "}
                   <span className={item.low_stock_alert ? "text-red-600 font-bold" : ""}>

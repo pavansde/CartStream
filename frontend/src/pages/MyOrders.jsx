@@ -14,44 +14,81 @@ export default function MyOrders() {
         setOrders(res.data);
       } catch (err) {
         setError("Failed to load your orders.");
-        console.error(err);
       } finally {
         setLoading(false);
       }
     };
+
     fetchOrders();
   }, []);
 
-  if (loading) return <p className="p-6">Loading your orders...</p>;
-  if (error) return <p className="p-6 text-red-600">{error}</p>;
+  if (loading)
+    return (
+      <p className="p-6 text-center text-gray-500 animate-pulse">
+        Loading your orders...
+      </p>
+    );
+  if (error)
+    return (
+      <p className="p-6 text-center text-red-600 font-medium">{error}</p>
+    );
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">My Orders</h1>
+      <h1 className="text-3xl font-extrabold mb-6 text-gray-800">My Orders</h1>
       {orders.length === 0 ? (
-        <p>You have no orders placed yet.</p>
+        <p className="text-gray-600 text-center mt-8">
+          You have no orders placed yet.
+        </p>
       ) : (
-        <ul className="space-y-4">
+        <ul className="space-y-6">
           {orders.map((order) => (
-            <li key={order.id} className="border p-4 rounded">
-              <p>
-                <strong>Order ID:</strong> {order.id}
-              </p>
-              <p>
-                <strong>Status:</strong> {order.status}
-              </p>
-              <p>
-                <strong>Items:</strong>
-              </p>
-              <ul className="list-disc list-inside ml-4">
-                {order.items.map((item) => (
-                  <li key={item.id}>
-                    {item.title} x {item.quantity}
-                  </li>
-                ))}
-              </ul>
-              <p>
-                <strong>Total:</strong> ${order.total_price.toFixed(2)}
+            <li
+              key={order.id}
+              className="border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 bg-white"
+            >
+              <div className="flex justify-between items-center mb-3">
+                <p className="font-semibold text-gray-700">
+                  Order ID: <span className="font-normal">{order.id}</span>
+                </p>
+                <span
+                  className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    order.status === "Delivered"
+                      ? "bg-green-100 text-green-800"
+                      : order.status === "Pending"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : "bg-gray-100 text-gray-800"
+                  }`}
+                >
+                  {order.status}
+                </span>
+              </div>
+
+              <div className="mb-4">
+                <p className="font-semibold text-gray-700 mb-1">Items:</p>
+                <ul className="list-disc list-inside ml-4 space-y-1 text-gray-600">
+                  {order.items.length > 0 ? (
+                    order.items.map((item, index) => (
+                      <li key={item.id ?? item.item_id ?? index}>
+                        {item.item_title || "Unknown item"} x {item.quantity} — ₹
+                        {item.line_total_price != null
+                          ? item.line_total_price.toFixed(2)
+                          : "N/A"}
+                      </li>
+                    ))
+                  ) : (
+                    <li>No items found</li>
+                  )}
+                </ul>
+              </div>
+
+              <p className="text-gray-800 font-semibold">
+                Total:{" "}
+                <span className="font-normal">
+                  {order.total_price != null
+                    ? `₹${order.total_price.toFixed(2)}`
+                    : "N/A"}
+                </span>
               </p>
             </li>
           ))}

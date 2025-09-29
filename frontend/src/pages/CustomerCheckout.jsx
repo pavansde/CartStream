@@ -2,11 +2,12 @@ import React, { useState, useContext, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import { UpiQrPayment } from "./UpiQrPayment";
+import { createOrder } from "../api/orders";
 
 // Memoized InputField preserves input focus between renders
-const InputField = React.memo(({ 
-  section, field, label, type = "text", required = false, 
-  placeholder, value, onChange 
+const InputField = React.memo(({
+  section, field, label, type = "text", required = false,
+  placeholder, value, onChange
 }) => (
   <div className="mb-6">
     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -33,13 +34,12 @@ const ProgressSteps = React.memo(({ currentStep, completedSteps }) => (
       <React.Fragment key={step}>
         <div className="flex flex-col items-center select-none cursor-default">
           <div
-            className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-semibold transition-colors duration-300 ${
-              completedSteps.includes(step)
-                ? "bg-green-500 text-white shadow-lg"
-                : currentStep === step
+            className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-semibold transition-colors duration-300 ${completedSteps.includes(step)
+              ? "bg-green-500 text-white shadow-lg"
+              : currentStep === step
                 ? "bg-blue-600 text-white shadow-lg scale-110"
                 : "bg-gray-300 text-gray-600"
-            }`}
+              }`}
           >
             {completedSteps.includes(step) ? "✓" : step}
           </div>
@@ -49,9 +49,8 @@ const ProgressSteps = React.memo(({ currentStep, completedSteps }) => (
         </div>
         {step < 3 && (
           <div
-            className={`w-24 h-1 mx-2 transition-all duration-300 ${
-              completedSteps.includes(step) ? "bg-green-500" : "bg-gray-200"
-            }`}
+            className={`w-24 h-1 mx-2 transition-all duration-300 ${completedSteps.includes(step) ? "bg-green-500" : "bg-gray-200"
+              }`}
           />
         )}
       </React.Fragment>
@@ -64,6 +63,7 @@ export default function CustomerCheckout() {
   const location = useLocation();
   const { cartItems: contextCartItems = [] } = useContext(CartContext);
   const cartItems = location.state?.cartItems || contextCartItems;
+  const { clearCart } = useContext(CartContext);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState([]);
@@ -94,9 +94,9 @@ export default function CustomerCheckout() {
   const { subtotal, shippingCost, total } = useMemo(() => {
     const calcSubtotal = Array.isArray(cartItems)
       ? cartItems.reduce(
-          (sum, { item, quantity }) => sum + (item?.price || 0) * quantity,
-          0
-        )
+        (sum, { item, quantity }) => sum + (item?.price || 0) * quantity,
+        0
+      )
       : 0;
     const ship = 9.99;
     const totalAmt = calcSubtotal + ship;
@@ -118,43 +118,42 @@ export default function CustomerCheckout() {
   }, []);
 
   const validateCurrentStep = useCallback(() => {
-  if (currentStep === 1) {
-    const requiredFields = [
-      "fullName",
-      "addressLine1",
-      "city",
-      "state",
-      "postalCode",
-      "country",
-      "phone",
-    ];
-    return requiredFields.every(
-      (field) => formData.shipping[field]?.trim().length > 0
-    );
-  }
-  if (currentStep === 2) {
-    // Review step, no input fields to validate
-    return true;
-  }
-  if (currentStep === 3) {
-    if (!formData.payment.method) {
-      return false; // Payment method must be selected
+    if (currentStep === 1) {
+      const requiredFields = [
+        "fullName",
+        "addressLine1",
+        "city",
+        "state",
+        "postalCode",
+        "country",
+        "phone",
+      ];
+      return requiredFields.every(
+        (field) => formData.shipping[field]?.trim().length > 0
+      );
     }
-    if (formData.payment.method === "upi" && !upiPaymentConfirmed) {
-      return false; // Require UPI payment confirmation
+    if (currentStep === 2) {
+      // Review step, no input fields to validate
+      return true;
     }
-    // Add other payment validations here if needed (e.g. card fields etc.)
-    return true;
-  }
-  return true; // default true for any other steps (if any)
-}, [currentStep, formData, upiPaymentConfirmed]);
+    if (currentStep === 3) {
+      if (!formData.payment.method) {
+        return false; // Payment method must be selected
+      }
+      if (formData.payment.method === "upi" && !upiPaymentConfirmed) {
+        return false; // Require UPI payment confirmation
+      }
+      // Add other payment validations here if needed (e.g. card fields etc.)
+      return true;
+    }
+    return true; // default true for any other steps (if any)
+  }, [currentStep, formData, upiPaymentConfirmed]);
 
 
   const handleNext = useCallback(() => {
     if (!validateCurrentStep()) {
       setError(
-        `Please fill in all required ${
-          currentStep === 1 ? "shipping" : "payment"
+        `Please fill in all required ${currentStep === 1 ? "shipping" : "payment"
         } details`
       );
       return;
@@ -179,47 +178,49 @@ export default function CustomerCheckout() {
     setIsSubmitting(true);
     setError("");
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      setSuccessMessage(
-        "Order placed successfully! Confirmation email will be sent."
-      );
+      await createOrder({
+        items: cartItems.map(({ item, quantity }) => ({ item_id: item.id, quantity }))
+      });
+      await clearCart();
+      setSuccessMessage("Order placed successfully! Confirmation email will be sent.");
       setCompletedSteps((prev) => [...new Set([...prev, 3])]);
       setShowSuccessScreen(true);
-    } catch {
+    } catch (err) {
       setError("Failed to place order. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   },
-  [validateCurrentStep]
+  [validateCurrentStep, clearCart, cartItems]
 );
+
 
   // Success Screen with fade-in animation
   const SuccessScreen = () => (
-  <div className="fixed inset-0 bg-white flex flex-col items-center justify-center text-green-700 font-semibold text-2xl animate-fadeIn z-50 p-8">
-    <svg
-      className="w-20 h-20 mb-6"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-      />
-    </svg>
-    <p>Order placed successfully!</p>
-    <p>You will receive a confirmation email shortly.</p>
-    <button
-      onClick={() => navigate("/", { replace: true })}
-      className="mt-6 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors"
-    >
-      Continue
-    </button>
-  </div>
-);
+    <div className="fixed inset-0 bg-white flex flex-col items-center justify-center text-green-700 font-semibold text-2xl animate-fadeIn z-50 p-8">
+      <svg
+        className="w-20 h-20 mb-6"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+      <p>Order placed successfully!</p>
+      <p>You will receive a confirmation email shortly.</p>
+      <button
+        onClick={() => navigate("/", { replace: true })}
+        className="mt-6 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+      >
+        Continue
+      </button>
+    </div>
+  );
 
 
   const renderShippingStep = () => (
@@ -318,11 +319,10 @@ export default function CustomerCheckout() {
         ].map((method) => (
           <label
             key={method.value}
-            className={`cursor-pointer p-6 border rounded-xl flex flex-col items-center transition-colors duration-200 ${
-              formData.payment.method === method.value
-                ? "border-blue-600 bg-blue-50 shadow-lg"
-                : "border-gray-300 hover:border-gray-400"
-            }`}
+            className={`cursor-pointer p-6 border rounded-xl flex flex-col items-center transition-colors duration-200 ${formData.payment.method === method.value
+              ? "border-blue-600 bg-blue-50 shadow-lg"
+              : "border-gray-300 hover:border-gray-400"
+              }`}
           >
             <input
               type="radio"
@@ -421,7 +421,7 @@ export default function CustomerCheckout() {
               {currentStep === 1 && renderShippingStep()}
               {currentStep === 2 && renderReviewStep()}
               {currentStep === 3 && renderPaymentStep()}
-              
+
             </section>
 
             {/* Sidebar omitted for brevity, keep your order summary sidebar here */}

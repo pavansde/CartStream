@@ -77,7 +77,7 @@ export default function CartPage() {
 
   const handleCheckoutClick = () => {
   if (!user) {
-    navigate("/login", { state: {from: "/checkout"} });
+    navigate("/login", { state: {from: "/checkout", cartItems } });
   } else {
     navigate("/checkout", { state: { cartItems } }); // pass current cart items
   }
@@ -100,13 +100,68 @@ export default function CartPage() {
     );
   }
 
+  // if (cartItems.length === 0) {
+  //   return (
+  //     <div className="p-6 text-gray-600 font-semibold text-center">
+  //       Your cart is empty.
+  //     </div>
+  //   );
+  // }
+
   if (cartItems.length === 0) {
-    return (
-      <div className="p-6 text-gray-600 font-semibold text-center">
-        Your cart is empty.
+  return (
+    <div className="max-w-md mx-auto p-8 text-center">
+      {/* Icon */}
+      <div className="mb-6">
+        <svg 
+          className="w-24 h-24 mx-auto text-gray-300" 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
+          <path 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            strokeWidth={1} 
+            d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" 
+          />
+        </svg>
       </div>
-    );
-  }
+
+      {/* Message */}
+      <h3 className="text-2xl font-bold text-gray-800 mb-3">
+        Your cart is empty
+      </h3>
+      <p className="text-gray-600 mb-8">
+        Looks like you haven't added any items to your cart yet.
+      </p>
+
+      {/* Action Button */}
+      <button
+        onClick={() => window.location.href = '/'} // or your navigation logic
+        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition duration-200 transform hover:scale-105"
+      >
+        Continue Shopping
+      </button>
+
+      {/* Additional Suggestions */}
+      <div className="mt-8 pt-8 border-t border-gray-200">
+        <p className="text-sm text-gray-500 mb-4">Popular categories:</p>
+        <div className="flex justify-center space-x-4">
+          <button className="text-blue-600 hover:text-blue-800 text-sm font-medium transition">
+            Best Sellers
+          </button>
+          <button className="text-blue-600 hover:text-blue-800 text-sm font-medium transition">
+            New Arrivals
+          </button>
+          <button className="text-blue-600 hover:text-blue-800 text-sm font-medium transition">
+            Sale Items
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
   return (
     <main className="p-6 max-w-4xl mx-auto" aria-label="Shopping Cart">
@@ -124,7 +179,7 @@ export default function CartPage() {
                   src={item.image_url || "/images/placeholder.jpg"}
                   alt={item.title}
                   className="w-24 h-24 object-cover rounded mr-4"
-                  onError={(e) => (e.currentTarget.src = "/images/placeholder.jpg")}
+                  onError={(e) => (e.currentTarget.src = "")}
                 />
                 <div>
                   <h2 className="font-semibold text-lg text-gray-900">{item.title}</h2>

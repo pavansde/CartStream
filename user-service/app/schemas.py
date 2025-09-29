@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
+
 
 
 # =========================
@@ -80,34 +81,68 @@ class ItemRead(ItemBase):
 # =========================
 # Order Schemas
 # =========================
+# class OrderBase(BaseModel):
+#     item_id: int
+#     quantity: int
+
+
+# class OrderCreate(OrderBase):
+#     pass
+
+
+# class OrderRead(BaseModel):
+#     id: int
+#     customer_id: int
+#     item_id: int
+#     quantity: int
+#     total_price: float
+#     status: str
+#     # Optional: for joining customer/item/shop_owner names in future
+#     customer_name: Optional[str] = None
+#     item_title: Optional[str] = None
+#     shop_owner_name: Optional[str] = None
+
+#     class Config:
+#         orm_mode = True
+
+
+# class OrderUpdateStatus(BaseModel):
+#     status: str
+
 class OrderBase(BaseModel):
-    item_id: int
-    quantity: int
-
-
-class OrderCreate(OrderBase):
-    pass
-
-
-class OrderRead(BaseModel):
-    id: int
     customer_id: int
+    status: str
+
+class OrderItemBase(BaseModel):
     item_id: int
     quantity: int
-    total_price: float
-    status: str
-    # Optional: for joining customer/item/shop_owner names in future
-    customer_name: Optional[str] = None
+
+class OrderItemRead(BaseModel):
+    id: int
+    item_id: int
+    quantity: int
     item_title: Optional[str] = None
-    shop_owner_name: Optional[str] = None
+    line_total_price: float
 
     class Config:
         orm_mode = True
 
+class OrderCreate(BaseModel):
+    # customer_id: int
+    items: List[OrderItemBase]  # Multiple items per order
+
+class OrderRead(BaseModel):
+    id: int
+    customer_id: int
+    status: str
+    items: List[OrderItemRead]
+    total_price: float
+
+    class Config:
+        orm_mode = True
 
 class OrderUpdateStatus(BaseModel):
     status: str
-
 
 # =========================
 # Wishlist Schemas

@@ -9,6 +9,10 @@ export const createOrder = (orderData) => API.post("/orders/", orderData);
 // Shop owner: Get all orders for their shop
 export const getShopOwnerOrders = () => API.get("/shop-owner/orders");
 
+// shop owner update order status
+export const updateShopOwnerOrderStatus = (orderId, statusData) =>
+  API.put(`/shop-owner/orders/${orderId}/status`, statusData);
+
 // Admin: Get all orders (admin only)
 export const getAdminOrders = () => API.get("/admin/orders");
 
