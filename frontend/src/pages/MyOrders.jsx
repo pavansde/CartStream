@@ -52,13 +52,12 @@ export default function MyOrders() {
                   Order ID: <span className="font-normal">{order.id}</span>
                 </p>
                 <span
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    order.status === "Delivered"
+                  className={`px-3 py-1 rounded-full text-sm font-medium ${order.status === "Delivered"
                       ? "bg-green-100 text-green-800"
                       : order.status === "Pending"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : "bg-gray-100 text-gray-800"
-                  }`}
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
                 >
                   {order.status}
                 </span>
@@ -66,20 +65,27 @@ export default function MyOrders() {
 
               <div className="mb-4">
                 <p className="font-semibold text-gray-700 mb-1">Items:</p>
-                <ul className="list-disc list-inside ml-4 space-y-1 text-gray-600">
+                <ul className="list-disc list-inside ml-4 space-y-3 text-gray-600">
                   {order.items.length > 0 ? (
                     order.items.map((item, index) => (
-                      <li key={item.id ?? item.item_id ?? index}>
-                        {item.item_title || "Unknown item"} x {item.quantity} — ₹
-                        {item.line_total_price != null
-                          ? item.line_total_price.toFixed(2)
-                          : "N/A"}
+                      <li key={item.id ?? item.item_id ?? index} className="flex items-center space-x-4">
+                        <img
+                          src={item.image_url || item.image}
+                          alt={item.item_title || "Product image"}
+                          className="w-12 h-12 object-cover rounded"
+                          onError={(e) => { "Not Found"; }}
+                        />
+                        <div>
+                          <div>{item.item_title || "Unknown item"} x {item.quantity}</div>
+                          <div>₹{item.line_total_price != null ? item.line_total_price.toFixed(2) : "N/A"}</div>
+                        </div>
                       </li>
                     ))
                   ) : (
                     <li>No items found</li>
                   )}
                 </ul>
+
               </div>
 
               <p className="text-gray-800 font-semibold">

@@ -52,14 +52,14 @@ export default function Navbar() {
     <nav className={`${currentColor} text-white shadow-lg transition-colors duration-300`}>
       <div className="max-w-7xl mx-auto px-4 flex justify-between items-center h-16">
         <Link to="/" className="text-xl font-extrabold tracking-wide hover:opacity-85 transition">
-          MyApp
+          Cart Stream
         </Link>
 
         {/* Desktop menu */}
         <div className="hidden md:flex space-x-6 items-center">
 
           {/* Always show cart icon for customers */}
-          {user && user.role !== "ShopOwner" && user.role !== "admin" && (
+          {( !user || (user && user.role === "customer") ) && (
             <Link to="/cart" className="relative hover:text-gray-300" aria-label="View cart">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -112,30 +112,30 @@ export default function Navbar() {
 
               {/* Notifications Bell */}
               {user && user.role !== "admin" && (
-              <button
-                onClick={() => navigate("/notifications")}
-                className="relative focus:outline-none"
-                aria-label="View Notifications"
-              >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  viewBox="0 0 24 24"
+                <button
+                  onClick={() => navigate("/notifications")}
+                  className="relative focus:outline-none"
+                  aria-label="View Notifications"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15 17h5l-1.4-1.4A2.005 2.005 0 0118 14.2V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C8.67 6.165 8 7.388 8 8.8v5.4c0 .53-.21 1.04-.586 1.414L6 17h5m4 0v1a3 3 0 11-6 0v-1m6 0H9"
-                  />
-                </svg>
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 rounded-full px-1 text-xs">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 17h5l-1.4-1.4A2.005 2.005 0 0118 14.2V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C8.67 6.165 8 7.388 8 8.8v5.4c0 .53-.21 1.04-.586 1.414L6 17h5m4 0v1a3 3 0 11-6 0v-1m6 0H9"
+                    />
+                  </svg>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 rounded-full px-1 text-xs">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
               )}
 
               <button

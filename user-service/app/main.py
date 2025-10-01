@@ -9,6 +9,8 @@ from app.routes import wishlist as wishlist_routes
 from app.routes import notifications as notifications_routes
 from app.routes import carts as carts_routes  # Import the carts routes
 from sqlalchemy import create_engine
+from app.routes import coupons as coupons_routes
+from app.routes import addresses as addresses_routes
 
 app = FastAPI(title="User Service")
 
@@ -40,6 +42,8 @@ app.include_router(orders_routes.router)
 app.include_router(wishlist_routes.router)
 app.include_router(notifications_routes.router)
 app.include_router(carts_routes.router, prefix="/cart")
+app.include_router(coupons_routes.router)
+app.include_router(addresses_routes.router)
 
 
 @app.on_event("startup")

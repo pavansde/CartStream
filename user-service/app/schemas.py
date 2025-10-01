@@ -1,7 +1,6 @@
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List
+from pydantic import BaseModel, EmailStr, Field, constr
+from typing import Optional, List, Annotated
 from datetime import datetime
-
 
 
 # =========================
@@ -27,7 +26,7 @@ class UserRead(BaseModel):
     role: str  # include role in read output for frontend auth
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserLogin(BaseModel):
@@ -75,40 +74,55 @@ class ItemRead(ItemBase):
     low_stock_alert: bool = False        # always included, default False
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+
+# =========================
+# Address Schema
+# =========================
+# Type aliases with Annotated and Field metadata for constraints
+FullNameStr = Annotated[str, Field(strip_whitespace=True, min_length=1)]
+PhoneStr = Annotated[str, Field(strip_whitespace=True, min_length=7, max_length=15)]
+AddressLineStr = Annotated[str, Field(strip_whitespace=True, min_length=1)]
+CityStr = Annotated[str, Field(strip_whitespace=True, min_length=1)]
+StateStr = Annotated[str, Field(strip_whitespace=True, min_length=1)]
+PostalCodeStr = Annotated[str, Field(strip_whitespace=True, min_length=3, max_length=10)]
+CountryStr = Annotated[str, Field(strip_whitespace=True, min_length=1)]
+
+class AddressBase(BaseModel):
+    full_name: FullNameStr = Field(..., alias="full_name")
+    phone: PhoneStr
+    address_line1: AddressLineStr = Field(..., alias="address_line1")
+    address_line2: Optional[str] = Field(None, alias="address_line2")
+    city: CityStr
+    state: StateStr
+    postal_code: PostalCodeStr = Field(..., alias="postal_code")
+    country: CountryStr
+    is_default: Optional[bool] = Field(False, alias="is_default")
+
+    class Config:
+        validate_by_name = True
+
+class AddressCreate(AddressBase):
+    pass
+
+class AddressUpdate(AddressBase):
+    pass
+
+class AddressRead(AddressBase):
+    id: int
+    user_id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+        validate_by_name = True
 
 
 # =========================
 # Order Schemas
 # =========================
-# class OrderBase(BaseModel):
-#     item_id: int
-#     quantity: int
-
-
-# class OrderCreate(OrderBase):
-#     pass
-
-
-# class OrderRead(BaseModel):
-#     id: int
-#     customer_id: int
-#     item_id: int
-#     quantity: int
-#     total_price: float
-#     status: str
-#     # Optional: for joining customer/item/shop_owner names in future
-#     customer_name: Optional[str] = None
-#     item_title: Optional[str] = None
-#     shop_owner_name: Optional[str] = None
-
-#     class Config:
-#         orm_mode = True
-
-
-# class OrderUpdateStatus(BaseModel):
-#     status: str
-
 class OrderBase(BaseModel):
     customer_id: int
     status: str
@@ -122,27 +136,33 @@ class OrderItemRead(BaseModel):
     item_id: int
     quantity: int
     item_title: Optional[str] = None
+    image_url: Optional[str] = None
     line_total_price: float
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class OrderCreate(BaseModel):
     # customer_id: int
     items: List[OrderItemBase]  # Multiple items per order
+    coupon_code: Optional[str] = None
+    shipping_address: AddressCreate
+    shipping_charge: Optional[float] = 0.0
 
 class OrderRead(BaseModel):
     id: int
     customer_id: int
     status: str
     items: List[OrderItemRead]
+    coupon_code: Optional[str] = None
     total_price: float
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class OrderUpdateStatus(BaseModel):
     status: str
+
 
 # =========================
 # Wishlist Schemas
@@ -159,7 +179,7 @@ class WishlistRead(BaseModel):
     item: ItemRead                      # Nested item info for clarity
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # =========================
@@ -186,7 +206,7 @@ class AuditLogRead(AuditLogBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 
@@ -199,7 +219,7 @@ class NotificationRead(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class NotificationCreate(BaseModel):
@@ -226,4 +246,43 @@ class CartItem(BaseModel):
     quantity: int = Field(..., ge=1)
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+
+# =========================
+# Coupon Schemas
+# =========================
+
+class CouponBase(BaseModel):
+    code: str = Field(..., max_length=32)
+    description: Optional[str] = None
+    discount_type: str  # "percentage" or "fixed"
+    discount_value: float = Field(..., ge=0)
+    active: Optional[bool] = True
+    start_at: Optional[datetime] = None
+    end_at: Optional[datetime] = None
+    min_order_amount: Optional[float] = 0
+    max_uses: Optional[int] = 0  # 0 means unlimited
+
+class CouponCreate(CouponBase):
+    pass
+
+class CouponUpdate(BaseModel):
+    description: Optional[str] = None
+    discount_type: Optional[str] = None  # "percentage" or "fixed"
+    discount_value: Optional[float] = None
+    active: Optional[bool] = None
+    start_at: Optional[datetime] = None
+    end_at: Optional[datetime] = None
+    min_order_amount: Optional[float] = None
+    max_uses: Optional[int] = None
+
+class CouponRead(CouponBase):
+    id: int
+    used_count: int
+    created_by: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

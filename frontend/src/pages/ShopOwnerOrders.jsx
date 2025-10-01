@@ -166,10 +166,21 @@ export default function ShopOwnerOrders() {
                     <div className="col-span-4">
                       <div className="space-y-2">
                         {order.items?.slice(0, 2).map((item, index) => (
-                          <div key={item.id || index} className="flex justify-between items-center text-sm">
-                            <span className="text-gray-900 truncate">
+                          <div key={item.id || index} className="flex items-center justify-between text-sm space-x-4">
+                            {/* Product image */}
+                            <img
+                              src={item.image_url.startsWith('http') ? item.image_url : `/${item.image_url}`}
+                              alt={item.item_title || "Product image"}
+                              className="w-12 h-12 object-cover rounded"
+                              onError={(e) => {
+                                e.currentTarget.src = "/api/placeholder/50/50";
+                              }}
+                            />
+                            {/* Item title and quantity */}
+                            <span className="flex-grow text-gray-900 truncate">
                               {item.item_title || "Unknown Item"} × {item.quantity}
                             </span>
+                            {/* Item price */}
                             <span className="text-gray-500 font-medium">
                               ₹{item.line_total_price?.toFixed(2) || "0.00"}
                             </span>
@@ -184,6 +195,7 @@ export default function ShopOwnerOrders() {
                           <p className="text-gray-500 text-sm">No items</p>
                         )}
                       </div>
+
                     </div>
 
                     {/* Actions */}
@@ -192,11 +204,10 @@ export default function ShopOwnerOrders() {
                         disabled={updatingOrderId === order.id}
                         value={order.status}
                         onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                          updatingOrderId === order.id 
-                            ? 'bg-gray-100 cursor-not-allowed opacity-70' 
-                            : 'bg-white border-gray-300 hover:border-gray-400'
-                        } ${statusConfig.color}`}
+                        className={`w-full px-3 py-2 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${updatingOrderId === order.id
+                          ? 'bg-gray-100 cursor-not-allowed opacity-70'
+                          : 'bg-white border-gray-300 hover:border-gray-400'
+                          } ${statusConfig.color}`}
                       >
                         <option value="pending">Pending</option>
                         <option value="processing">Processing</option>

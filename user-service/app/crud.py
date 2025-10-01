@@ -2,7 +2,7 @@ from app.database import database
 from app.models import users, notifications
 from passlib.context import CryptContext
 from app.schemas import UserUpdate
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from app.email import send_low_stock_email
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -27,12 +27,17 @@ async def update_user(user_id: int, user_update: UserUpdate):
 # Notifications CRUD
 # ======================
 async def create_notification(user_id: int, message: str, send_email_alert: bool = False, item_title: str = None, stock: int = None):
-    # Insert in DB
+    IST = timezone(timedelta(hours=5, minutes=30))
+    now_ist = datetime.now(IST)
+    now_str = now_ist.strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.strptime(now_str, "%Y-%m-%d %H:%M:%S")
+
+    # Insert in DB with IST datetime naive
     query = notifications.insert().values(
         user_id=user_id,
         message=message,
         is_read=False,
-        created_at=datetime.utcnow()
+        created_at=now
     )
     await database.execute(query)
 
