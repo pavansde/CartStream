@@ -11,6 +11,7 @@ services:
       DATABASE_URL: mysql+aiomysql://root:12345@mysql-db:3306/users
     volumes:
       - ./user-service:/app   # Mount local code into container
+      - ./static:/app/static
     command: uvicorn app.main:app --host 0.0.0.0 --port 80 --reload
 
   mysql-db:

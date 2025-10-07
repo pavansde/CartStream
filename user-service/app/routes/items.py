@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from app.database import database
 from app.models import items, users
 from app.schemas import ItemCreate, ItemRead, Message
 from typing import List
-from app.deps import get_current_shop_owner, get_current_admin_user
+from app.deps import get_current_shop_owner, get_current_admin_user, get_current_shop_owner_or_admin
 from app.crud import create_notification
+import os
 
 LOW_STOCK_THRESHOLD = 5
 router = APIRouter()
@@ -50,6 +51,7 @@ async def admin_list_items():
         items.c.description,
         items.c.price,
         items.c.stock,
+        items.c.image_url,
         users.c.username.label("owner_username"),
         users.c.email.label("owner_email"),
     )
@@ -66,61 +68,117 @@ async def admin_list_items():
 # Shop Owner → create new item with stock
 # =====================
 @router.post("/items/", response_model=ItemRead)
-async def create_item(item: ItemCreate, current_user=Depends(get_current_shop_owner)):
+async def create_item(
+    title: str = Form(...),
+    description: str = Form(...),
+    price: float = Form(...),
+    stock: int = Form(...),
+    image: UploadFile = File(None),
+    current_user=Depends(get_current_shop_owner),
+):
+    image_url = None
+    if image:
+        image_dir = "static/images"
+        os.makedirs(image_dir, exist_ok=True)
+        filename = os.path.join(image_dir, image.filename)
+        with open(filename, "wb") as buffer:
+            buffer.write(await image.read())
+        image_url = f"/static/images/{image.filename}"
+
     item_id = await database.execute(
         items.insert().values(
-            title=item.title,
-            description=item.description,
-            price=item.price,
-            stock=item.stock,
-            image_url=item.image_url,  # <-- save image_url
+            title=title,
+            description=description,
+            price=price,
+            stock=stock,
+            image_url=image_url,
             owner_id=current_user["id"],
         )
     )
-    
-    if item.stock < LOW_STOCK_THRESHOLD:
+
+    if stock < LOW_STOCK_THRESHOLD:
         await create_notification(
             user_id=current_user["id"],
-            message=f"Low stock alert for '{item.title}' — only {item.stock} left.",
+            message=f"Low stock alert for '{title}' — only {stock} left.",
             send_email_alert=True,
-            item_title=item.title,
-            stock=item.stock,
+            item_title=title,
+            stock=stock,
         )
-    
+
     return {
-        **item.dict(),
         "id": item_id,
+        "title": title,
+        "description": description,
+        "price": price,
+        "stock": stock,
+        "image_url": image_url,
         "owner_id": current_user["id"],
-        "low_stock_alert": item.stock < LOW_STOCK_THRESHOLD,
+        "low_stock_alert": stock < LOW_STOCK_THRESHOLD,
     }
 
 
-# =====================
-# Shop Owner & Admin → update item (including stock)
-# =====================
+# # =====================
+# # Shop Owner & Admin → update item (including stock)
+# # =====================
 @router.put("/items/{item_id}", response_model=ItemRead)
-async def update_item(item_id: int, item: ItemCreate, current_user=Depends(get_current_shop_owner)):
+async def update_item(
+    item_id: int,
+    title: str = Form(...),
+    description: str = Form(...),
+    price: float = Form(...),
+    stock: int = Form(...),
+    image: UploadFile = File(None),  # optional image upload
+    current_user=Depends(get_current_shop_owner_or_admin),
+):
     existing = await database.fetch_one(items.select().where(items.c.id == item_id))
     if not existing:
         raise HTTPException(status_code=404, detail="Item not found")
-
     if existing["owner_id"] != current_user["id"] and current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Not authorized to update this item")
 
-    await database.execute(items.update().where(items.c.id == item_id).values(**item.dict()))
+    image_url = existing["image_url"]
+    if image:
+        # Save uploaded new image file
+        import os
+        image_dir = "static/images"
+        os.makedirs(image_dir, exist_ok=True)
+        filename = os.path.join(image_dir, image.filename)
+        with open(filename, "wb") as buffer:
+            buffer.write(await image.read())
+        image_url = f"/static/images/{image.filename}"
 
-    # Low stock notification if dropped below threshold
-    if item.stock < LOW_STOCK_THRESHOLD:
+    # Update item in DB with new data and possibly new image_url
+    await database.execute(
+        items.update()
+        .where(items.c.id == item_id)
+        .values(
+            title=title,
+            description=description,
+            price=price,
+            stock=stock,
+            image_url=image_url,
+        )
+    )
+
+    if stock < LOW_STOCK_THRESHOLD:
         await create_notification(
             user_id=existing["owner_id"],
-            message=f"Low stock alert for '{item.title}' — only {item.stock} left.",
+            message=f"Low stock alert for '{title}' — only {stock} left.",
             send_email_alert=True,
-            item_title=item.title,
-            stock=item.stock
+            item_title=title,
+            stock=stock,
         )
 
-
-    return {**item.dict(), "id": item_id, "owner_id": existing["owner_id"], "low_stock_alert": item.stock < LOW_STOCK_THRESHOLD}
+    return {
+        "id": item_id,
+        "title": title,
+        "description": description,
+        "price": price,
+        "stock": stock,
+        "image_url": image_url,
+        "owner_id": existing["owner_id"],
+        "low_stock_alert": stock < LOW_STOCK_THRESHOLD,
+    }
 
 # =====================
 # Shop Owner & Admin → delete item

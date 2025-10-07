@@ -1,5 +1,5 @@
 from app.database import database
-from app.models import users, notifications
+from app.models import users, notifications, user_profiles  
 from passlib.context import CryptContext
 from app.schemas import UserUpdate
 from datetime import datetime, timezone, timedelta
@@ -56,3 +56,25 @@ async def mark_notification_read(notification_id: int, user_id: int):
         (notifications.c.id == notification_id) & (notifications.c.user_id == user_id)
     ).values(is_read=True)
     await database.execute(query)
+
+# ======================
+# User Profile CRUD
+# ======================
+
+async def get_user_profile(user_id: int):
+    query = user_profiles.select().where(user_profiles.c.user_id == user_id)
+    profile = await database.fetch_one(query)
+    return profile
+
+
+async def create_user_profile(user_id: int, profile_data: dict):
+    profile_data["user_id"] = user_id
+    query = user_profiles.insert().values(**profile_data)
+    await database.execute(query)
+    return await get_user_profile(user_id)
+
+
+async def update_user_profile(user_id: int, profile_data: dict):
+    query = user_profiles.update().where(user_profiles.c.user_id == user_id).values(**profile_data)
+    await database.execute(query)
+    return await get_user_profile(user_id)

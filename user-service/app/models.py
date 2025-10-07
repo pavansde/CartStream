@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Table, Column, Integer, String, Text, Float, ForeignKey, MetaData,Boolean, DateTime, UniqueConstraint
+from sqlalchemy import Table, Column, Integer, String, Text, Float, ForeignKey, MetaData,Boolean, DateTime, UniqueConstraint, Date
 from sqlalchemy.sql import expression, func
 
 metadata = MetaData()
@@ -14,6 +14,21 @@ users = Table(
     Column("hashed_password", String(128)),
     # Default role is now 'customer' for regular users
     Column("role", String(20), default="customer", nullable=False),
+)
+
+# ===== User Profiles Table =====
+
+user_profiles = Table(
+    "user_profiles",
+    metadata,
+    Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("full_name", String(100), nullable=True),
+    Column("profile_picture", String(255), nullable=True),  # URL or file path
+    Column("contact_number", String(20), nullable=True),
+    Column("date_of_birth", Date, nullable=True),
+    Column("bio", Text, nullable=True),
+    Column("created_at", DateTime, nullable=False, server_default=func.now()),
+    Column("updated_at", DateTime, nullable=False, server_default=func.now(), onupdate=func.now()),
 )
 
 # ===== Items Table =====

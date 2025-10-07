@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, constr
 from typing import Optional, List, Annotated
-from datetime import datetime
+from datetime import datetime, date
 
 
 # =========================
@@ -39,6 +39,50 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     password: Optional[str] = None
     role: Optional[str] = None
+
+
+
+# =========================
+# User Profile Schemas
+# =========================
+
+class UserProfileBase(BaseModel):
+    full_name: Optional[str] = Field(None, alias="fullName")
+    profile_picture: Optional[str] = Field(None, alias="profilePicture")
+    contact_number: Optional[str] = Field(None, alias="contactNumber")
+    date_of_birth: Optional[date] = Field(None, alias="dateOfBirth")
+    bio: Optional[str]
+    email: EmailStr
+
+    class Config:
+        validate_by_name = True
+
+class UserProfileCreate(UserProfileBase):
+    pass
+
+# class UserProfileUpdate(UserProfileBase):
+#     pass
+class UserProfileUpdateForm(BaseModel):
+    full_name: Optional[str] = Field(None, alias="fullName")
+    contact_number: Optional[str] = Field(None, alias="contactNumber")
+    date_of_birth: Optional[date] = Field(None, alias="dateOfBirth")
+    bio: Optional[str]
+    email: EmailStr
+
+    class Config:
+        allow_population_by_field_name = True
+
+
+class UserProfileInDBBase(UserProfileBase):
+    user_id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class UserProfile(UserProfileInDBBase):
+    pass
 
 
 # =========================
@@ -109,9 +153,18 @@ class AddressCreate(AddressBase):
 class AddressUpdate(AddressBase):
     pass
 
-class AddressRead(AddressBase):
-    id: int
-    user_id: int
+class AddressRead(BaseModel):
+    id: Optional[int] = None
+    user_id: Optional[int] = None
+    full_name: FullNameStr = Field(None, alias="full_name")
+    phone: PhoneStr = None
+    address_line1: AddressLineStr = Field(None, alias="address_line1")
+    address_line2: Optional[str] = Field(None, alias="address_line2")
+    city: CityStr = None
+    state: StateStr = None
+    postal_code: PostalCodeStr = Field(None, alias="postal_code")
+    country: CountryStr = None
+    is_default: Optional[bool] = Field(False, alias="is_default")
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -131,6 +184,7 @@ class OrderItemBase(BaseModel):
     item_id: int
     quantity: int
 
+
 class OrderItemRead(BaseModel):
     id: int
     item_id: int
@@ -138,6 +192,8 @@ class OrderItemRead(BaseModel):
     item_title: Optional[str] = None
     image_url: Optional[str] = None
     line_total_price: float
+    shop_owner_name: Optional[str] = None  # Add shop owner per item
+    item_owner_id: Optional[int] = None    # Add item owner ID
 
     class Config:
         from_attributes = True
@@ -156,6 +212,10 @@ class OrderRead(BaseModel):
     items: List[OrderItemRead]
     coupon_code: Optional[str] = None
     total_price: float
+    shipping_address: Optional[AddressRead]
+    customer_username: Optional[str] = None  # Add customer username
+    shop_owner_name: Optional[str] = None    # Add primary shop owner
+    order_date: Optional[datetime] = None    # Add order date
 
     class Config:
         from_attributes = True

@@ -293,7 +293,6 @@ app.add_middleware(
 │   ├── pages/
 │   │   ├── Login.js
 │   │   ├── Register.js
-│   │   ├── Dashboard.js
 │   │   └── AdminPanel.js
 │   └── App.js
 └── tailwind.config.js

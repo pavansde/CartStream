@@ -191,25 +191,25 @@ async def view_my_orders(current_user=Depends(get_current_user)):
     if current_user["role"] != "customer":
         raise HTTPException(status_code=403, detail="Only customers can view their orders")
 
+    # Fetch all orders for this customer
     query = orders.select().where(orders.c.customer_id == current_user["id"])
     order_rows = await database.fetch_all(query)
 
-    # For each order, fetch its items
     orders_with_items = []
     for order in order_rows:
+        # Fetch order items
         items_query = (
             order_items.select()
             .where(order_items.c.order_id == order.id)
             .join(items, items.c.id == order_items.c.item_id)
             .with_only_columns(
-            order_items.c.id,
-            order_items.c.item_id,
-            order_items.c.quantity,
-            items.c.title.label("item_title"),
-            items.c.image_url,
-            order_items.c.line_total_price, 
-        )
-
+                order_items.c.id,
+                order_items.c.item_id,
+                order_items.c.quantity,
+                items.c.title.label("item_title"),
+                items.c.image_url,
+                order_items.c.line_total_price, 
+            )
         )
         item_rows = await database.fetch_all(items_query)
 
@@ -226,13 +226,36 @@ async def view_my_orders(current_user=Depends(get_current_user)):
             for item in item_rows
         ]
 
+        # Fetch shipping address for this order
+        address_query = addresses.select().where(addresses.c.id == order.shipping_address_id)
+        address_row = await database.fetch_one(address_query)
+        shipping_address = None
+        if address_row:
+            shipping_address = {
+                "id": address_row.id,
+                "user_id": address_row.user_id,
+                "full_name": address_row.full_name,
+                "phone": address_row.phone,
+                "address_line1": address_row.address_line1,
+                "address_line2": address_row.address_line2,
+                "city": address_row.city,
+                "state": address_row.state,
+                "postal_code": address_row.postal_code,
+                "country": address_row.country,
+                "is_default": address_row.is_default,
+                "created_at": address_row.created_at,
+                "updated_at": address_row.updated_at,
+            }
+
+        # Build result dict matching the OrderRead schema
         order_dict = dict(order)
-        print("Order dict:", order_dict)
         order_dict["items"] = item_list
+        order_dict["shipping_address"] = shipping_address  # <- This is required!
         order_dict["total_price"] = order.total_price 
         orders_with_items.append(order_dict)
 
     return orders_with_items
+
 
 # =====================
 # Shop Owner → View Orders for Own Items
@@ -240,21 +263,23 @@ async def view_my_orders(current_user=Depends(get_current_user)):
 @router.get("/shop-owner/orders", response_model=List[OrderRead])
 async def shop_owner_orders(current_user=Depends(get_current_shop_owner)):
     query = """
-        SELECT o.id AS order_id, o.customer_id, o.total_price, o.status,
-       u.username AS customer_username,
-       oi.id AS order_item_id, oi.item_id, oi.quantity, oi.line_total_price,
-       i.title AS item_title,
-       i.image_url
+        SELECT 
+            o.id AS order_id, o.customer_id, o.total_price, o.status, o.coupon_code,
+            u.username AS customer_username,
+            oi.id AS order_item_id, oi.item_id, oi.quantity, oi.line_total_price,
+            i.title AS item_title, i.image_url,
+            a.id AS address_id, a.user_id AS address_user_id, a.full_name, a.phone, 
+            a.address_line1, a.address_line2, a.city, a.state, a.postal_code, a.country, a.is_default,
+            a.created_at AS address_created_at, a.updated_at AS address_updated_at
         FROM orders o
         JOIN order_items oi ON oi.order_id = o.id
         JOIN items i ON oi.item_id = i.id
         JOIN users u ON o.customer_id = u.id
+        LEFT JOIN addresses a ON o.shipping_address_id = a.id
         WHERE i.owner_id = :owner_id
-
     """
     rows = await database.fetch_all(query=query, values={"owner_id": current_user["id"]})
-    
-    # Group flat rows by order_id
+
     orders = {}
     for row in rows:
         oid = row["order_id"]
@@ -262,9 +287,25 @@ async def shop_owner_orders(current_user=Depends(get_current_shop_owner)):
             orders[oid] = {
                 "id": oid,
                 "customer_id": row["customer_id"],
-                "total_price": row["total_price"],
                 "status": row["status"],
+                "coupon_code": row["coupon_code"],
+                "total_price": row["total_price"],
                 "customer_username": row["customer_username"],
+                "shipping_address": {
+                    "id": row["address_id"],
+                    "user_id": row["address_user_id"],
+                    "full_name": row["full_name"],
+                    "phone": row["phone"],
+                    "address_line1": row["address_line1"],
+                    "address_line2": row["address_line2"],
+                    "city": row["city"],
+                    "state": row["state"],
+                    "postal_code": row["postal_code"],
+                    "country": row["country"],
+                    "is_default": row["is_default"],
+                    "created_at": row["address_created_at"],
+                    "updated_at": row["address_updated_at"],
+                } if row["address_id"] else None,
                 "items": [],
             }
         orders[oid]["items"].append({
@@ -273,8 +314,9 @@ async def shop_owner_orders(current_user=Depends(get_current_shop_owner)):
             "quantity": row["quantity"],
             "item_title": row["item_title"],
             "line_total_price": row["line_total_price"],
-             "image_url": row["image_url"]
+            "image_url": row["image_url"],
         })
+
     return list(orders.values())
 
 
@@ -304,28 +346,28 @@ async def shop_owner_update_order_status(order_id: int, status_data: OrderUpdate
     return {"message": f"Order {order_id} status updated to {status_data.status}"}
 
 
-# =====================
-# Admin → View All Orders
-# =====================
+# # =====================
+# # Admin → View All Orders
+# # =====================
 @router.get("/admin/orders", response_model=List[OrderRead], dependencies=[Depends(get_current_admin_user)])
 async def admin_list_orders():
-    # print("Reached admin_list_orders endpoint", flush=True)
     query = """
         SELECT o.id AS order_id, o.customer_id, o.total_price, o.status,
-        c.username AS customer_username, s.username AS shop_owner_name,
-        oi.id AS order_item_id, oi.item_id, oi.quantity, oi.line_total_price,
-        i.title AS item_title
+               c.username AS customer_username, s.username AS shop_owner_name,
+               oi.id AS order_item_id, oi.item_id, oi.quantity, oi.line_total_price,
+               i.title AS item_title,
+               a.id AS address_id, a.user_id AS address_user_id, a.full_name, a.phone,
+               a.address_line1, a.address_line2, a.city, a.state, a.postal_code, a.country,
+               a.is_default, a.created_at AS address_created_at, a.updated_at AS address_updated_at
         FROM orders o
         LEFT JOIN order_items oi ON oi.order_id = o.id
         LEFT JOIN items i ON oi.item_id = i.id
         LEFT JOIN users c ON o.customer_id = c.id
         LEFT JOIN users s ON i.owner_id = s.id
-
+        LEFT JOIN addresses a ON o.shipping_address_id = a.id
     """
     rows = await database.fetch_all(query)
-    # print(f"Fetched rows: {len(rows)}", flush=True)
-    # print(rows, flush=True)
-
+    
     orders = {}
     for row in rows:
         oid = row["order_id"]
@@ -337,6 +379,21 @@ async def admin_list_orders():
                 "status": row["status"],
                 "customer_username": row["customer_username"],
                 "shop_owner_name": row["shop_owner_name"],
+                "shipping_address": {
+                    "id": row["address_id"],
+                    "user_id": row["address_user_id"],
+                    "full_name": row["full_name"],
+                    "phone": row["phone"],
+                    "address_line1": row["address_line1"],
+                    "address_line2": row["address_line2"],
+                    "city": row["city"],
+                    "state": row["state"],
+                    "postal_code": row["postal_code"],
+                    "country": row["country"],
+                    "is_default": row["is_default"],
+                    "created_at": row["address_created_at"],
+                    "updated_at": row["address_updated_at"],
+                } if row["address_id"] else None,
                 "items": [],
             }
         orders[oid]["items"].append({
@@ -346,7 +403,6 @@ async def admin_list_orders():
             "item_title": row["item_title"],
             "line_total_price": row["line_total_price"],
         })
-        # print(orders.values())
     return list(orders.values())
 
 

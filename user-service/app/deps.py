@@ -50,6 +50,16 @@ async def get_current_shop_owner(token: str = Depends(oauth2_scheme)):
         )
     return user
 
+#  shop owner & admin
+async def get_current_shop_owner_or_admin(token: str = Depends(oauth2_scheme)):
+    user = await get_current_user(token)
+    if user["role"].lower() not in ("shopowner", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+    return user
+
 
 # Customer‑only (regular users)
 async def get_current_customer(token: str = Depends(oauth2_scheme)):

@@ -15,6 +15,9 @@ export default function PublicItemsPage() {
   const [stockFilter, setStockFilter] = useState("all");
   const [sortBy, setSortBy] = useState("name-asc");
 
+  // Toast notifications
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
   const { user } = useContext(AuthContext);
   const { cart, addItem, loadingIds: cartLoadingIds } = useContext(CartContext);
   const [wishlistLoadingIds, setWishlistLoadingIds] = useState(new Set());
@@ -28,25 +31,24 @@ export default function PublicItemsPage() {
       const res = await getAllItems();
       setItems(res.data);
     } catch (err) {
-      // Log the detailed error for devs / monitoring (not shown to users)
       console.error("Failed to fetch items:", err);
-
-      // Always show one friendly fallback message to users
       setError(
         "Something went wrong on our side. We're working on it and will get back to you soon."
       );
-
-      // Optional: send to monitoring service here (Sentry, LogRocket, etc.)
-      // captureError(err);
     } finally {
       setLoading(false);
     }
   };
 
-
   useEffect(() => {
     fetchItems();
   }, []);
+
+  // Show toast notification
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3000);
+  };
 
   // Filter and sort items
   const filteredItems = useMemo(() => {
@@ -88,17 +90,17 @@ export default function PublicItemsPage() {
   if (error) return <ErrorState onRetry={fetchItems} message={error} />;
 
   // Wishlist handler
-  const handleAddToWishlist = async (itemId) => {
+  const handleAddToWishlist = async (itemId, itemTitle) => {
     setWishlistLoadingIds((prev) => new Set(prev).add(itemId));
     try {
       await addToWishlist(itemId);
-      alert("Added to wishlist!");
+      showToast(`"${itemTitle}" added to wishlist!`, "success");
     } catch (error) {
       const msg =
         error?.response?.data?.detail ||
         error?.message ||
         "Failed to add to wishlist";
-      alert(msg);
+      showToast(msg, "error");
     } finally {
       setWishlistLoadingIds((prev) => {
         const copy = new Set(prev);
@@ -109,9 +111,52 @@ export default function PublicItemsPage() {
   };
 
   // Cart handler
-  const handleAddToCart = async (itemId) => {
-    await addItem(itemId);
-    alert("Added to cart!");
+  const handleAddToCart = async (itemId, itemTitle) => {
+    try {
+      await addItem(itemId);
+      showToast(`"${itemTitle}" added to cart!`, "success");
+    } catch (error) {
+      const msg = error?.response?.data?.detail || error?.message || "Failed to add to cart";
+      showToast(msg, "error");
+    }
+  };
+
+  // Toast Component
+  const Toast = () => {
+    if (!toast.show) return null;
+
+    return (
+      <div className="fixed top-20 right-4 z-50 animate-in slide-in-from-right duration-300">
+        <div
+          className={`flex items-center p-4 rounded-lg shadow-lg border ${
+            toast.type === "success"
+              ? "bg-green-50 border-green-200 text-green-800"
+              : "bg-red-50 border-red-200 text-red-800"
+          }`}
+        >
+          <div className="flex items-center">
+            {toast.type === "success" ? (
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            )}
+            <span className="font-medium">{toast.message}</span>
+          </div>
+          <button
+            onClick={() => setToast({ show: false, message: "", type: "success" })}
+            className="ml-4 text-gray-400 hover:text-gray-600"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    );
   };
 
   // Loading skeleton component
@@ -143,7 +188,6 @@ export default function PublicItemsPage() {
       </div>
     </div>
   );
-
 
   // Empty state component
   const EmptyState = () => (
@@ -179,6 +223,9 @@ export default function PublicItemsPage() {
 
   return (
     <div className="p-6">
+      {/* Toast Notifications */}
+      <Toast />
+
       <h1 className="text-2xl font-bold mb-6 text-gray-900">Available Products</h1>
 
       {/* Filters & Sorting Controls */}
@@ -218,7 +265,7 @@ export default function PublicItemsPage() {
       {filteredItems.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
           {filteredItems.map((item) => {
             const showWishlist = user && user.role === "customer";
             const showCart = true;
@@ -270,27 +317,48 @@ export default function PublicItemsPage() {
                 <div className="flex flex-col sm:flex-row gap-2">
                   {showWishlist && (
                     <button
-                      onClick={() => handleAddToWishlist(item.id)}
+                      onClick={() => handleAddToWishlist(item.id, item.title)}
                       disabled={wishlistLoadingIds.has(item.id)}
-                      className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${wishlistLoadingIds.has(item.id)
+                      className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center ${
+                        wishlistLoadingIds.has(item.id)
                           ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                           : "bg-yellow-500 hover:bg-yellow-600 text-white"
-                        }`}
+                      }`}
                     >
-                      {wishlistLoadingIds.has(item.id) ? "Adding..." : "Add to Wishlist"}
+                      {wishlistLoadingIds.has(item.id) ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Adding...
+                        </>
+                      ) : (
+                        "Add to Wishlist"
+                      )}
                     </button>
                   )}
                   {showCart && (
                     <button
-                      onClick={() => handleAddToCart(item.id)}
+                      onClick={() => handleAddToCart(item.id, item.title)}
                       disabled={cartLoadingIds.has(item.id) || item.stock === 0}
-                      className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${cartLoadingIds.has(item.id) || item.stock === 0
+                      className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center ${
+                        cartLoadingIds.has(item.id) || item.stock === 0
                           ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                           : "bg-blue-600 hover:bg-blue-700 text-white"
-                        }`}
+                      }`}
                     >
-                      {cartLoadingIds.has(item.id) ? "Adding..." : "Add to Cart"}
-                      {cart[item.id] ? ` (${cart[item.id]})` : ""}
+                      {cartLoadingIds.has(item.id) ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Adding...
+                        </>
+                      ) : (
+                        `Add to Cart${cart[item.id] ? ` (${cart[item.id]})` : ""}`
+                      )}
                     </button>
                   )}
                 </div>

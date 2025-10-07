@@ -4,130 +4,19 @@ import { AuthContext } from "../context/AuthContext";
 import { updateOrderStatus } from "../api/orders";
 import { getAdminCoupons, deleteAdminCoupon, toggleCouponStatus, createAdminCoupon, updateAdminCoupon } from "../api/coupons";
 import CouponsTable from "../pages/Coupons"; // Import the Coupons component
+import Sidebar from "../components/Sidebar";
+import { updateItem } from "../api/items";
+import AdminDashboardStats from "../components/AdminDashboardStats";
 
 // Tab components (DashboardTab, UsersTab, OrdersTab, ItemsTab remain the same)
-const DashboardTab = ({ users, lowStockItems, notifications, orders, coupons }) => (
-  <div className="space-y-6">
-    {/* Quick Stats */}
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500">
-        <div className="flex items-center">
-          <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
-            <span className="text-xl">👥</span>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-600">Total Users</p>
-            <p className="text-lg font-semibold text-gray-900">{users.length} Users</p>
-          </div>
-        </div>
-      </div>
 
-      <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500">
-        <div className="flex items-center">
-          <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-4">
-            <span className="text-xl">📋</span>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-600">Total Orders</p>
-            <p className="text-lg font-semibold text-gray-900">{orders.length} Orders</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-red-500">
-        <div className="flex items-center">
-          <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mr-4">
-            <span className="text-xl">⚠️</span>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-600">Low Stock</p>
-            <p className="text-lg font-semibold text-gray-900">{lowStockItems.length} Items</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-purple-500">
-        <div className="flex items-center">
-          <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mr-4">
-            <span className="text-xl">🎫</span>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-600">Active Coupons</p>
-            <p className="text-lg font-semibold text-gray-900">{coupons.filter(c => c.active).length} Active</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* Alerts Section */}
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Low Stock Alert */}
-      {lowStockItems.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
-          <div className="flex items-center mb-3">
-            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center mr-3">
-              <span className="text-red-600">⚠️</span>
-            </div>
-            <h3 className="font-bold text-red-700">Low Stock Items ({lowStockItems.length})</h3>
-          </div>
-          <div className="space-y-2 max-h-40 overflow-auto">
-            {lowStockItems.map((item) => (
-              <div key={item.id} className="flex justify-between items-center text-sm p-2 bg-white rounded-lg">
-                <span className="font-medium text-gray-900 truncate">{item.title}</span>
-                <div className="flex items-center gap-4">
-                  <span className="text-red-600 font-semibold">Stock: {item.stock}</span>
-                  <span className="text-gray-500 text-xs">Owner: {item.owner_username}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Active Promotions */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center">
-            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-3">
-              <span className="text-purple-600">🎫</span>
-            </div>
-            <h3 className="font-bold text-gray-900">Active Promotions</h3>
-          </div>
-          <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">
-            {coupons.filter(c => c.active).length} active
-          </span>
-        </div>
-        {coupons.filter(c => c.active).length > 0 ? (
-          <div className="space-y-3">
-            {coupons.filter(c => c.active).slice(0, 3).map((coupon) => (
-              <div key={coupon.id} className="p-3 rounded-lg border border-purple-200 bg-purple-50">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-medium text-gray-900">{coupon.code}</p>
-                    <p className="text-sm text-gray-600">{coupon.description}</p>
-                  </div>
-                  <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
-                    {coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : `₹${coupon.discount_value}`}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
-                  <span>Uses: {coupon.used_count || 0}/{coupon.max_uses || '∞'}</span>
-                  <span>Expires: {coupon.end_at ? new Date(coupon.end_at).toLocaleDateString() : 'No expiry'}</span>
-                </div>
-              </div>
-            ))}
-            {coupons.filter(c => c.active).length > 3 && (
-              <p className="text-center text-sm text-gray-500">
-                +{coupons.filter(c => c.active).length - 3} more active promotions
-              </p>
-            )}
-          </div>
-        ) : (
-          <p className="text-gray-500 text-center py-4">No active promotions</p>
-        )}
-      </div>
-    </div>
-  </div>
+const DashboardTab = ({ users, items, orders, coupons }) => (
+  <AdminDashboardStats
+    users={users}
+    items={items}
+    orders={orders}
+    coupons={coupons}
+  />
 );
 
 const UsersTab = ({ users, user, updateUserRole, deleteUser }) => (
@@ -211,11 +100,57 @@ const OrdersTab = ({ orders, ordersLoading, ordersError, onStatusChange }) => {
     return config[status] || { color: "bg-gray-100 text-gray-800", icon: "●" };
   };
 
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'No date';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Function to get unique shop owners from order items
+  const getShopOwnersFromOrder = (order) => {
+    if (!order.items || order.items.length === 0) return ['Unknown Shop'];
+
+    // For now, we'll use the shop_owner_name from the order
+    // But ideally, the API should provide shop owner per item
+    if (order.shop_owner_name) {
+      return [order.shop_owner_name];
+    }
+
+    return ['Multiple Shops']; // Fallback
+  };
+
+  // Function to group items by shop owner (for future when API provides this)
+  const groupItemsByShopOwner = (items) => {
+    const groups = {};
+    items.forEach(item => {
+      // Since API doesn't provide shop_owner per item, we'll group by item_id as placeholder
+      const shopKey = item.shop_owner_name || `Shop-${item.item_id}`;
+      if (!groups[shopKey]) {
+        groups[shopKey] = [];
+      }
+      groups[shopKey].push(item);
+    });
+    return groups;
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200">
         <h2 className="text-xl font-bold text-gray-900">All Orders</h2>
-        <p className="text-gray-600 text-sm">Manage platform orders</p>
+        <p className="text-gray-600 text-sm">Manage platform orders across all shops</p>
       </div>
 
       {ordersLoading ? (
@@ -244,7 +179,8 @@ const OrdersTab = ({ orders, ordersLoading, ordersError, onStatusChange }) => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order Details</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop Owner</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop Owner(s)</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               </tr>
@@ -252,48 +188,135 @@ const OrdersTab = ({ orders, ordersLoading, ordersError, onStatusChange }) => {
             <tbody className="divide-y divide-gray-200">
               {orders.map((order) => {
                 const statusConfig = getStatusConfig(order.status);
+                const totalItems = order.items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
+                const totalRevenue = order.items?.reduce((sum, item) => sum + (item.line_total_price || 0), 0) || 0;
+                const shopOwners = getShopOwnersFromOrder(order);
+                const hasMultipleShops = shopOwners.length > 1;
+
                 return (
                   <tr key={order.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <div>
                         <div className="text-sm font-medium text-gray-900">Order #{order.id}</div>
-                        <div className="text-sm text-gray-500 mt-1">
-                          {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}
+                        <div className="text-xs text-gray-500 mt-1">
+                          Customer ID: {order.customer_id}
                         </div>
-                        {order.items?.slice(0, 2).map((item, index) => (
-                          <div key={item.id || index} className="text-xs text-gray-600 truncate">
-                            • {item.item_title} × {item.quantity}
+                        {order.customer_username && (
+                          <div className="text-xs text-gray-500">
+                            Username: {order.customer_username}
                           </div>
-                        ))}
-                        {order.items?.length > 2 && (
-                          <div className="text-xs text-gray-500">+{order.items.length - 2} more</div>
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">{order.customer_username}</div>
-                      <div className="text-xs text-gray-500">ID: {order.customer_id}</div>
+                      {order.shipping_address ? (
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {order.shipping_address.full_name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            📞 {order.shipping_address.phone}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {order.shipping_address.address_line1}
+                            {order.shipping_address.address_line2 && `, ${order.shipping_address.address_line2}`}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {order.shipping_address.city}, {order.shipping_address.state} - {order.shipping_address.postal_code}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500">No shipping address</div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">{order.shop_owner_name}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-semibold text-gray-900">
-                        ₹{order.total_price?.toFixed(2) || '0.00'}
+                      <div className="space-y-2">
+                        {shopOwners.map((shopOwner, index) => (
+                          <div key={index} className="flex items-center">
+                            <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center mr-2">
+                              <span className="text-orange-600 text-xs">🏪</span>
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {shopOwner}
+                              </div>
+                              {hasMultipleShops && (
+                                <div className="text-xs text-gray-500">
+                                  {order.items?.filter(item =>
+                                    item.shop_owner_name === shopOwner ||
+                                    !item.shop_owner_name
+                                  ).length || 0} items
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        {hasMultipleShops && (
+                          <div className="text-xs text-blue-600 font-medium">
+                            Multi-shop order
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <select
-                        value={order.status}
-                        onChange={(e) => onStatusChange(order.id, e.target.value)}
-                        className={`rounded border px-2 py-1 text-sm ${statusConfig.color}`}
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="processing">Processing</option>
-                        <option value="shipped">Shipped</option>
-                        <option value="delivered">Delivered</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
+                      <div className="space-y-2">
+                        {order.items?.slice(0, 3).map((item, index) => (
+                          <div key={item.id || index} className="flex items-center justify-between text-sm">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-gray-900 font-medium truncate">
+                                {item.item_title || 'Unknown Item'}
+                              </p>
+                              <p className="text-gray-500 text-xs">
+                                Qty: {item.quantity} × {formatCurrency((item.line_total_price || 0) / (item.quantity || 1))}
+                              </p>
+                            </div>
+                            <span className="text-gray-900 font-medium ml-2">
+                              {formatCurrency(item.line_total_price || 0)}
+                            </span>
+                          </div>
+                        ))}
+                        {order.items?.length > 3 && (
+                          <div className="text-xs text-gray-500 pt-1">
+                            +{order.items.length - 3} more items
+                          </div>
+                        )}
+                        <div className="pt-2 border-t border-gray-100">
+                          <div className="flex justify-between text-xs font-medium text-gray-900">
+                            <span>Total Items:</span>
+                            <span>{totalItems}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-right">
+                        <div className="text-sm font-semibold text-gray-900">
+                          {formatCurrency(totalRevenue)}
+                        </div>
+                        {order.total_price && order.total_price !== totalRevenue && (
+                          <div className="text-xs text-gray-500">
+                            With shipping: {formatCurrency(order.total_price)}
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-400 mt-1">
+                          {order.items?.length || 0} product{order.items?.length !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-2">
+                        <select
+                          value={order.status}
+                          onChange={(e) => onStatusChange(order.id, e.target.value)}
+                          className={`rounded-lg border px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${statusConfig.color}`}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="processing">Processing</option>
+                          <option value="shipped">Shipped</option>
+                          <option value="delivered">Delivered</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -306,13 +329,136 @@ const OrdersTab = ({ orders, ordersLoading, ordersError, onStatusChange }) => {
   );
 };
 
-const ItemsTab = ({ items, onDeleteItem, onEditItem }) => {
+// const ItemsTab = ({ items, onDeleteItem, onEditItem }) => {
+//   return (
+//     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+//       <div className="px-6 py-4 border-b border-gray-200">
+//         <h2 className="text-xl font-bold text-gray-900">Inventory Management</h2>
+//         <p className="text-gray-600 text-sm">Manage all items in the platform</p>
+//       </div>
+
+//       {items.length === 0 ? (
+//         <div className="text-center py-12">
+//           <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
+//             <span className="text-2xl">✅</span>
+//           </div>
+//           <p className="text-gray-500">No items found</p>
+//         </div>
+//       ) : (
+//         <table className="w-full table-auto border-collapse">
+//           <thead className="bg-gray-50">
+//             <tr>
+//               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+//               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+//               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+//               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+//               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
+//               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+//             </tr>
+//           </thead>
+//           <tbody className="divide-y divide-gray-200">
+//             {items.map(item => (
+//               <tr key={item.id} className={item.low_stock_alert ? "bg-red-50" : ""}>
+//                 <td className="px-6 py-4 text-sm font-medium text-gray-900">{item.title}</td>
+//                 <td className="px-6 py-4 text-sm text-gray-600">{item.description}</td>
+//                 <td className="px-6 py-4 text-sm text-gray-900">₹{item.price.toFixed(2)}</td>
+//                 <td className={`px-6 py-4 text-sm ${item.low_stock_alert ? "text-red-600 font-semibold" : "text-gray-900"}`}>
+//                   {item.stock}
+//                   {item.low_stock_alert && <span className="ml-2 text-xs bg-red-100 text-red-800 px-1 rounded">Low Stock</span>}
+//                 </td>
+//                 <td className="px-6 py-4 text-sm text-gray-900">{item.owner_username}</td>
+//                 <td className="px-6 py-4 text-center space-x-2">
+//                   <button
+//                     onClick={() => onEditItem(item)}
+//                     className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs"
+//                   >
+//                     Edit
+//                   </button>
+//                   <button
+//                     onClick={() => onDeleteItem(item.id)}
+//                     className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs"
+//                   >
+//                     Delete
+//                   </button>
+//                 </td>
+//               </tr>
+//             ))}
+//           </tbody>
+//         </table>
+//       )}
+//     </div>
+//   );
+// };
+
+const ItemsTab = ({
+  items,
+  onDeleteItem,
+  onEditItem,
+  editItemId,
+  editForm,
+  setEditForm,
+  submitEdit,
+  cancelEdit,
+}) => {
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200">
         <h2 className="text-xl font-bold text-gray-900">Inventory Management</h2>
         <p className="text-gray-600 text-sm">Manage all items in the platform</p>
       </div>
+
+      {editItemId && (
+        <form onSubmit={submitEdit} className="p-6 border-b border-gray-200 bg-gray-50 space-y-4 max-w-4xl mx-auto">
+          <h3 className="text-lg font-semibold">Edit Item</h3>
+          <input
+            type="text"
+            name="title"
+            value={editForm.title}
+            onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+            required
+            className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <textarea
+            name="description"
+            value={editForm.description}
+            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+            className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="number"
+            name="price"
+            value={editForm.price}
+            onChange={(e) => setEditForm({ ...editForm, price: parseFloat(e.target.value) })}
+            step="0.01"
+            min="0"
+            required
+            className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="number"
+            name="stock"
+            value={editForm.stock}
+            onChange={(e) => setEditForm({ ...editForm, stock: parseInt(e.target.value) })}
+            min="0"
+            required
+            className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setEditForm({ ...editForm, imageFile: e.target.files[0] })}
+            className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <div className="flex justify-between">
+            <button type="button" onClick={cancelEdit} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+              Cancel
+            </button>
+            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+              Save
+            </button>
+          </div>
+        </form>
+      )}
 
       {items.length === 0 ? (
         <div className="text-center py-12">
@@ -334,8 +480,22 @@ const ItemsTab = ({ items, onDeleteItem, onEditItem }) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {items.map(item => (
+            {items.map((item) => (
               <tr key={item.id} className={item.low_stock_alert ? "bg-red-50" : ""}>
+                {/* Cell values same as before */}
+                <td className="px-6 py-4">
+                  {item.image_url ? (
+                    <img
+                      src={`http://localhost:8000${item.image_url}`}
+                      alt={item.title}
+                      className="w-20 h-20 object-cover rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-xs">
+                      No Image
+                    </div>
+                  )}
+                </td>
                 <td className="px-6 py-4 text-sm font-medium text-gray-900">{item.title}</td>
                 <td className="px-6 py-4 text-sm text-gray-600">{item.description}</td>
                 <td className="px-6 py-4 text-sm text-gray-900">₹{item.price.toFixed(2)}</td>
@@ -345,16 +505,10 @@ const ItemsTab = ({ items, onDeleteItem, onEditItem }) => {
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-900">{item.owner_username}</td>
                 <td className="px-6 py-4 text-center space-x-2">
-                  <button
-                    onClick={() => onEditItem(item)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs"
-                  >
+                  <button onClick={() => onEditItem(item)} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs">
                     Edit
                   </button>
-                  <button
-                    onClick={() => onDeleteItem(item.id)}
-                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs"
-                  >
+                  <button onClick={() => onDeleteItem(item.id)} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs">
                     Delete
                   </button>
                 </td>
@@ -366,6 +520,7 @@ const ItemsTab = ({ items, onDeleteItem, onEditItem }) => {
     </div>
   );
 };
+
 
 export default function AdminPanel() {
   const { user, logout } = useContext(AuthContext);
@@ -387,6 +542,17 @@ export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // item editing state
+  const [editItemId, setEditItemId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    title: '',
+    description: '',
+    price: 0,
+    stock: 0,
+    imageFile: null,
+  });
+
 
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
@@ -470,8 +636,62 @@ export default function AdminPanel() {
   };
 
   const onEditItem = (item) => {
-    alert(`Implement edit UI for item: ${item.title}`);
+    setEditItemId(item.id);
+    setEditForm({
+      title: item.title,
+      description: item.description,
+      price: item.price,
+      stock: item.stock,
+      imageFile: null,
+    });
   };
+
+  const cancelEdit = () => {
+    setEditItemId(null);
+    setEditForm({
+      title: '',
+      description: '',
+      price: 0,
+      stock: 0,
+      imageFile: null,
+    });
+  };
+
+  const submitEdit = async (e) => {
+    e.preventDefault();
+    try {
+      const formData = new FormData();
+      formData.append("title", editForm.title);
+      formData.append("description", editForm.description);
+      formData.append("price", editForm.price);
+      formData.append("stock", editForm.stock);
+
+      if (editForm.imageFile) {
+        formData.append("image", editForm.imageFile);
+      }
+
+      const res = await updateItem(editItemId, formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
+      let updatedImageUrl = editForm.imageUrl;
+      if (editForm.imageFile && res.data.image_url) {
+        updatedImageUrl = `${res.data.image_url}?t=${new Date().getTime()}`;
+      }
+
+      setItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === editItemId ? { ...item, ...editForm, image_url: updatedImageUrl } : item
+        )
+      );
+      cancelEdit();
+      setErrMsg("");
+    } catch (err) {
+      console.error("Update failed:", err);
+      setErrMsg("Failed to update item.");
+    }
+  };
+
 
   const updateUserRole = async (id, newRole) => {
     try {
@@ -568,7 +788,7 @@ export default function AdminPanel() {
   const handleToggleCoupon = async (couponId) => {
     try {
       await toggleCouponStatus(couponId);
-      setCoupons(prev => prev.map(c => 
+      setCoupons(prev => prev.map(c =>
         c.id === couponId ? { ...c, active: !c.active } : c // Note: admin uses is_active
       ));
     } catch (err) {
@@ -601,7 +821,18 @@ export default function AdminPanel() {
       case "orders":
         return <OrdersTab orders={orders} ordersLoading={ordersLoading} ordersError={ordersError} onStatusChange={handleStatusChange} />;
       case "items":
-        return <ItemsTab items={items} onDeleteItem={onDeleteItem} onEditItem={onEditItem} />;
+        return (
+          <ItemsTab
+            items={items}
+            onDeleteItem={onDeleteItem}
+            onEditItem={onEditItem}
+            editItemId={editItemId}
+            editForm={editForm}
+            setEditForm={setEditForm}
+            submitEdit={submitEdit}
+            cancelEdit={cancelEdit}
+          />
+        );
       case "promotions":
         return (
           <CouponsTable
@@ -671,106 +902,24 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile menu button - Only show on mobile */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 bg-white rounded-lg shadow-md border border-gray-200 hover:bg-gray-50 transition-colors"
-        >
-          <span className="text-xl">☰</span>
-        </button>
-      </div>
-
       <div className="flex">
-        {/* Sidebar */}
-        <div className={`
-          fixed inset-y-0 left-0 z-40 bg-white shadow-xl transform transition-all duration-300 ease-in-out 
-          lg:static lg:translate-x-0 lg:z-auto
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          ${sidebarCollapsed ? 'w-20' : 'w-64'}
-        `}>
-          <div className="flex flex-col h-full">
-            {/* Header with integrated collapse button */}
-            <div className={`p-4 border-b border-gray-200 ${sidebarCollapsed ? 'text-center' : 'flex items-center justify-between'}`}>
-              {!sidebarCollapsed ? (
-                <>
-                  <div>
-                    <h1 className="text-lg font-bold text-gray-900">Admin Dashboard</h1>
-                    <p className="text-gray-600 text-xs mt-1">Platform Management</p>
-                  </div>
-                  <button
-                    onClick={() => setSidebarCollapsed(true)}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Collapse sidebar"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                    </svg>
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => setSidebarCollapsed(false)}
-                  className="w-full p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Expand sidebar"
-                >
-                  <svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                  </svg>
-                </button>
-              )}
-            </div>
-
-            {/* Navigation */}
-            <nav className="flex-1 p-4 space-y-1">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    setSidebarOpen(false); // Close sidebar on mobile after selection
-                  }}
-                  className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-3 rounded-lg text-left transition-colors ${activeTab === tab.id
-                    ? "bg-blue-50 text-blue-700 border-r-2 border-blue-600"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                    }`}
-                  title={sidebarCollapsed ? tab.label : ''}
-                >
-                  <span className={`${sidebarCollapsed ? 'text-lg' : 'text-lg mr-3'}`}>{tab.icon}</span>
-                  {!sidebarCollapsed && <span className="font-medium text-sm">{tab.label}</span>}
-                </button>
-              ))}
-            </nav>
-
-            {/* User info */}
-            <div className="p-4 border-t border-gray-200">
-              <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : ''}`}>
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                  <span className="text-blue-600 text-sm font-medium">
-                    {user?.username?.charAt(0).toUpperCase() || "A"}
-                  </span>
-                </div>
-                {!sidebarCollapsed && (
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{user?.username}</p>
-                    <p className="text-xs text-gray-500 truncate">Administrator</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Overlay for mobile */}
-        {sidebarOpen && (
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
+        <Sidebar
+          title="Admin Dashboard"
+          subtitle="Platform Management"
+          tabs={tabs}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          sidebarCollapsed={sidebarCollapsed}
+          setSidebarCollapsed={setSidebarCollapsed}
+          user={user}
+          userColor="blue"
+          userRoleLabel="Administrator"
+        />
 
         {/* Main content */}
-        <div className="flex-1 min-w-0">
+        <div className={`flex-1 min-w-0 transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
           <div className="py-8 px-4 sm:px-6 lg:px-8">
             {/* Page header */}
             <div className="mb-8">

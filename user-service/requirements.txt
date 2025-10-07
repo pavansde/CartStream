@@ -11,3 +11,4 @@ python-dotenv
 pymysql
 cryptography
 python-jose[cryptography]
+python-multipart

@@ -13,13 +13,18 @@ import {
   deleteShopOwnerCoupon,
   getShopOwnerCoupons,
 } from "../api/coupons";
-import API from "../api/axios";
 import CouponsTable from "../pages/Coupons";
+import Sidebar from "../components/Sidebar";
+import ShopOwnerOrders from "../pages/ShopOwnerOrders";
+import UserProfile from "../components/UserProfile";
+import ShopOwnerDashboardStats from "../components/ShopOwnerDashboardStats";
+import { getShopOwnerOrders } from "../api/orders";
 
-// ProductsTab component (same as before)
+// ProductsTab component
 const ProductsTab = ({
   items,
   form,
+  setEditForm,
   setForm,
   handleCreate,
   editItemId,
@@ -28,7 +33,7 @@ const ProductsTab = ({
   cancelEdit,
   handleEditChange,
   submitEdit,
-  handleDelete
+  handleDelete,
 }) => (
   <div className="space-y-6">
     {/* Create Item Form */}
@@ -45,7 +50,7 @@ const ProductsTab = ({
             required
           />
         </div>
-        <div>
+        {/* <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
           <input
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -53,7 +58,19 @@ const ProductsTab = ({
             value={form.imageUrl}
             onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
           />
+        </div> */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Upload Image
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setForm({ ...form, imageFile: e.target.files[0] })}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹) *</label>
           <input
@@ -133,15 +150,19 @@ const ProductsTab = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Upload Image
+                    </label>
                     <input
-                      name="imageUrl"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setEditForm({ ...editForm, imageFile: e.target.files[0] })}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Image URL"
-                      value={editForm.imageUrl}
-                      onChange={handleEditChange}
                     />
+
                   </div>
+
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹) *</label>
                     <input
@@ -197,13 +218,12 @@ const ProductsTab = ({
               // Product Display
               <div key={item.id} className="p-6 hover:bg-gray-50 transition-colors">
                 <div className="flex items-start gap-4">
-                  {item.image_url && (
-                    <img
-                      src={item.image_url}
-                      alt={item.title}
-                      className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
-                    />
-                  )}
+                  <img
+                    src={`http://localhost:8000${item.image_url}`}   // Add backend base URL here
+                    alt={item.title}
+                    className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
+                  />
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between">
                       <div>
@@ -256,14 +276,19 @@ export default function ShopOwnerDashboard() {
   const [loading, setLoading] = useState(true);
   const [errMsg, setErrMsg] = useState("");
 
+  const [orders, setOrders] = useState([]);
+
   // Sidebar and tab state
-  const [activeTab, setActiveTab] = useState("products");
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const tabs = [
+    { id: "dashboard", label: "Dashboard", icon: "📊" },
     { id: "products", label: "My Products", icon: "📦" },
     { id: "coupons", label: "Coupons", icon: "🎫" },
+    { id: "profile", label: "Profile", icon: "👤" },
+    { id: "orders", label: "My Orders", icon: "📦" },
   ];
 
   // Product form states and editing
@@ -281,8 +306,8 @@ export default function ShopOwnerDashboard() {
     price: "",
     stock: 0,
     imageUrl: "",
+    imageFile: null,
   });
-
   // Coupon editing state
   const [editingCoupon, setEditingCoupon] = useState(null);
   const [couponFormData, setCouponFormData] = useState({
@@ -301,12 +326,23 @@ export default function ShopOwnerDashboard() {
     const fetchData = async () => {
       try {
         if (user.role === "ShopOwner") {
-          const [itemsRes, couponsRes] = await Promise.all([
+          const [itemsRes, couponsRes, ordersRes] = await Promise.all([
             getMyItems(),
             getShopOwnerCoupons(),
+            getShopOwnerOrders(),
           ]);
+
+          // FIX: Handle nested array structure
+          let ordersData = ordersRes.data;
+          if (Array.isArray(ordersData) && ordersData.length > 0 && Array.isArray(ordersData[0])) {
+            ordersData = ordersData[0];
+          }
+
+          console.log('Processed orders data:', ordersData);
+
           setItems(itemsRes.data);
           setCoupons(couponsRes.data);
+          setOrders(ordersData); // Set the fixed data
           setErrMsg("");
         }
       } catch (err) {
@@ -319,24 +355,32 @@ export default function ShopOwnerDashboard() {
     fetchData();
   }, [user]);
 
-  // Product handlers (unchanged)
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      const payload = {
-        ...form,
-        image_url: form.imageUrl,
-      };
-      delete payload.imageUrl;
-      const res = await createItem(payload);
+      const formData = new FormData();
+      formData.append("title", form.title);
+      formData.append("description", form.description);
+      formData.append("price", form.price);
+      formData.append("stock", form.stock);
+
+      if (form.imageFile) {
+        formData.append("image", form.imageFile);  // Key "image" must match backend param
+      }
+
+      const res = await createItem(formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
       setItems([...items, res.data]);
-      setForm({ title: "", description: "", price: "", stock: 0, imageUrl: "" });
+      setForm({ title: "", description: "", price: "", stock: 0, imageFile: null });
       setErrMsg("");
     } catch (err) {
       console.error("Create item failed:", err);
       setErrMsg("Failed to create item.");
     }
   };
+
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this item?")) return;
@@ -357,6 +401,7 @@ export default function ShopOwnerDashboard() {
       price: item.price,
       stock: item.stock,
       imageUrl: item.image_url || "",
+      imageFile: null,
     });
   };
 
@@ -373,26 +418,49 @@ export default function ShopOwnerDashboard() {
     }));
   };
 
-  const submitEdit = async (e) => {
-    e.preventDefault();
-    try {
-      const payload = { ...editForm, image_url: editForm.imageUrl };
-      delete payload.imageUrl;
-      await updateItem(editItemId, payload);
-      setItems((prevItems) =>
-        prevItems.map((item) =>
-          item.id === editItemId ? { ...item, ...payload } : item
-        )
-      );
-      cancelEdit();
-      setErrMsg("");
-    } catch (err) {
-      console.error("Update failed:", err);
-      setErrMsg("Failed to update item.");
-    }
-  };
 
-  // Updated Coupon handlers
+const submitEdit = async (e) => {
+  e.preventDefault();
+  try {
+    const formData = new FormData();
+    formData.append("title", editForm.title);
+    formData.append("description", editForm.description);
+    formData.append("price", editForm.price);
+    formData.append("stock", editForm.stock);
+
+    if (editForm.imageFile) {
+      formData.append("image", editForm.imageFile);
+    }
+
+    // Wait for API call to return updated item including image_url
+    const res = await updateItem(editItemId, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    let updatedItem = { ...editForm };
+
+    // Append timestamp to image_url to bust cache if imageFile was present (new image uploaded)
+    if (editForm.imageFile && res.data.image_url) {
+      updatedItem.image_url = `${res.data.image_url}?t=${new Date().getTime()}`;
+    } else {
+      updatedItem.image_url = editForm.imageUrl; // keep previous URL if no new image uploaded
+    }
+
+    setItems((prevItems) =>
+      prevItems.map((item) =>
+        item.id === editItemId ? { ...item, ...updatedItem } : item
+      )
+    );
+    cancelEdit();
+    setErrMsg("");
+  } catch (err) {
+    console.error("Update failed:", err);
+    setErrMsg("Failed to update item.");
+  }
+};
+
+
+  // Coupon handlers
   const handleAddCoupon = async (couponData) => {
     try {
       const response = await createShopOwnerCoupon(couponData);
@@ -403,37 +471,31 @@ export default function ShopOwnerDashboard() {
     }
   };
 
-  // Updated Coupon handlers
   const handleEditCoupon = (coupon) => {
-    // Convert the coupon to the form format and set editing state
     const formattedCoupon = {
       ...coupon,
-      start_at: coupon.start_at ? coupon.start_at.split('T')[0] : '',
-      end_at: coupon.end_at ? coupon.end_at.split('T')[0] : '',
-      min_order_amount: coupon.min_order_amount || '',
-      max_uses: coupon.max_uses || '',
-      discount_value: coupon.discount_value ? coupon.discount_value.toString() : '',
-      // Ensure all required fields have values
-      code: coupon.code || '',
-      description: coupon.description || '',
-      discount_type: coupon.discount_type || 'percentage',
+      start_at: coupon.start_at ? coupon.start_at.split("T")[0] : "",
+      end_at: coupon.end_at ? coupon.end_at.split("T")[0] : "",
+      min_order_amount: coupon.min_order_amount || "",
+      max_uses: coupon.max_uses || "",
+      discount_value: coupon.discount_value ? coupon.discount_value.toString() : "",
+      code: coupon.code || "",
+      description: coupon.description || "",
+      discount_type: coupon.discount_type || "percentage",
       active: coupon.active !== undefined ? coupon.active : 1,
     };
     setEditingCoupon(formattedCoupon);
   };
 
-  // NEW: Function to handle form field updates during editing
   const handleEditFormChange = (field, value) => {
-    setEditingCoupon(prev => ({
+    setEditingCoupon((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
-  // NEW: Function to handle form submission for editing
   const handleEditSubmit = async (couponData) => {
     try {
-      // Validate required fields
       if (!couponData.code?.trim()) {
         alert("Coupon code is required");
         return;
@@ -454,14 +516,15 @@ export default function ShopOwnerDashboard() {
       };
 
       const response = await updateShopOwnerCoupon(editingCoupon.id, payload);
-      setCoupons((prev) => prev.map((c) => (c.id === editingCoupon.id ? { ...c, ...response.data } : c)));
+      setCoupons((prev) =>
+        prev.map((c) => (c.id === editingCoupon.id ? { ...c, ...response.data } : c))
+      );
       setEditingCoupon(null);
     } catch (err) {
       alert("Failed to update coupon");
       console.error(err);
     }
   };
-
 
   const handleCancelEdit = () => {
     setEditingCoupon(null);
@@ -492,7 +555,16 @@ export default function ShopOwnerDashboard() {
 
   // Render tabs content
   const renderActiveTab = () => {
+    console.log('Dashboard orders state:', orders);
     switch (activeTab) {
+      case "dashboard":  // Add this case
+        return (
+          <ShopOwnerDashboardStats
+            items={items}
+            orders={[orders]} // You'll need to fetch orders for dashboard - see note below
+            coupons={coupons}
+          />
+        );
       case "products":
         return (
           <ProductsTab
@@ -501,6 +573,7 @@ export default function ShopOwnerDashboard() {
             setForm={setForm}
             handleCreate={handleCreate}
             editItemId={editItemId}
+            setEditForm={setEditForm}
             editForm={editForm}
             startEdit={startEdit}
             cancelEdit={cancelEdit}
@@ -514,17 +587,21 @@ export default function ShopOwnerDashboard() {
           <CouponsTable
             coupons={coupons}
             onAddCoupon={handleAddCoupon}
-            onEditCoupon={handleEditCoupon} // This starts the edit mode
+            onEditCoupon={handleEditCoupon}
             onToggleCoupon={handleToggleCoupon}
             onDeleteCoupon={handleDeleteCoupon}
             loading={loading}
             error={errMsg}
             editingCoupon={editingCoupon}
             onCancelEdit={handleCancelEdit}
-            onEditFormChange={handleEditFormChange} // Add this for field updates
-            onEditSubmit={handleEditSubmit} // Add this for form submission
+            onEditFormChange={handleEditFormChange}
+            onEditSubmit={handleEditSubmit}
           />
         );
+      case "profile":    // Render UserProfile for profile tab
+        return <UserProfile />;
+      case "orders":
+        return <ShopOwnerOrders orders={orders} />;
       default:
         return null;
     }
@@ -560,119 +637,34 @@ export default function ShopOwnerDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 bg-white rounded-lg shadow-md border border-gray-200 hover:bg-gray-50 transition-colors"
-        >
-          <span className="text-xl">☰</span>
-        </button>
-      </div>
-
       <div className="flex">
-        {/* Sidebar */}
-        <div className={`
-          fixed inset-y-0 left-0 z-40 bg-white shadow-xl transform transition-all duration-300 ease-in-out 
-          lg:static lg:translate-x-0 lg:z-auto
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          ${sidebarCollapsed ? 'w-20' : 'w-64'}
-        `}>
-          <div className="flex flex-col h-full">
-            {/* Header with integrated collapse button */}
-            <div className={`p-4 border-b border-gray-200 ${sidebarCollapsed ? 'text-center' : 'flex items-center justify-between'}`}>
-              {!sidebarCollapsed ? (
-                <>
-                  <div>
-                    <h1 className="text-lg font-bold text-gray-900">My Shop</h1>
-                    <p className="text-gray-600 text-xs mt-1">Business Dashboard</p>
-                  </div>
-                  <button
-                    onClick={() => setSidebarCollapsed(true)}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Collapse sidebar"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                    </svg>
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => setSidebarCollapsed(false)}
-                  className="w-full p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Expand sidebar"
-                >
-                  <svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                  </svg>
-                </button>
-              )}
-            </div>
-
-            {/* Navigation */}
-            <nav className="flex-1 p-4 space-y-1">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    setSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-3 rounded-lg text-left transition-colors ${activeTab === tab.id
-                    ? "bg-blue-50 text-blue-700 border-r-2 border-blue-600"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                    }`}
-                  title={sidebarCollapsed ? tab.label : ''}
-                >
-                  <span className={`${sidebarCollapsed ? 'text-lg' : 'text-lg mr-3'}`}>{tab.icon}</span>
-                  {!sidebarCollapsed && <span className="font-medium text-sm">{tab.label}</span>}
-                </button>
-              ))}
-            </nav>
-
-            {/* User info */}
-            <div className="p-4 border-t border-gray-200">
-              <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : ''}`}>
-                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                  <span className="text-green-600 text-sm font-medium">
-                    {user?.username?.charAt(0).toUpperCase() || "S"}
-                  </span>
-                </div>
-                {!sidebarCollapsed && (
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{user?.username}</p>
-                    <p className="text-xs text-gray-500 truncate">Shop Owner</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Overlay for mobile */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
-        {/* Main content */}
-        <div className="flex-1 min-w-0">
+        <Sidebar
+          title="My Shop"
+          subtitle="Business Dashboard"
+          tabs={tabs}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          sidebarCollapsed={sidebarCollapsed}
+          setSidebarCollapsed={setSidebarCollapsed}
+          user={user}
+          userColor="green"
+          userRoleLabel="Shop Owner"
+        />
+        <div className={`flex-1 min-w-0 transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
           <div className="py-8 px-4 sm:px-6 lg:px-8">
-            {/* Page header */}
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-gray-900">
-                {tabs.find(tab => tab.id === activeTab)?.label || 'My Products'}
+                {tabs.find((tab) => tab.id === activeTab)?.label || "My Products"}
               </h1>
               <p className="text-gray-600 mt-2">
-                {activeTab === 'products' && 'Manage your product inventory and stock levels'}
-                {activeTab === 'coupons' && 'Create and manage discount codes for your shop'}
+                {activeTab === "products" &&
+                  "Manage your product inventory and stock levels"}
+                {activeTab === "coupons" &&
+                  "Create and manage discount codes for your shop"}
               </p>
             </div>
-
-            {/* Tab Content */}
             {renderActiveTab()}
           </div>
         </div>

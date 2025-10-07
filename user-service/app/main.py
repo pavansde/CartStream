@@ -11,8 +11,11 @@ from app.routes import carts as carts_routes  # Import the carts routes
 from sqlalchemy import create_engine
 from app.routes import coupons as coupons_routes
 from app.routes import addresses as addresses_routes
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="User Service")
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 origins = [
     "http://127.0.0.1:3000",

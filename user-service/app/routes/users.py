@@ -1,20 +1,21 @@
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, status
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, status, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
 from datetime import timedelta
 import os
+from datetime import datetime
 
 from app.database import database
-from app.models import users
-from app.schemas import UserCreate, UserRead, UserLogin, UserUpdate
+from app.models import users, user_profiles
+from app.schemas import UserCreate, UserRead, UserLogin, UserUpdate, UserProfileInDBBase, UserProfileUpdateForm
 from app.auth import (
     create_access_token,
     create_refresh_token,
     create_reset_password_token,
     verify_reset_password_token,
 )
-from app.crud import update_user
+from app.crud import update_user, update_user_profile, get_user_profile, create_user_profile
 from app.deps import get_current_user, get_current_admin_user
 from app.email import send_reset_email
 
@@ -29,6 +30,10 @@ class ForgotPasswordRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str
+    new_password: str
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
     new_password: str
 
 # =====================
@@ -67,6 +72,11 @@ async def login(user: UserLogin):
     if not db_user or not pwd_context.verify(user.password, db_user["hashed_password"]):
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
+    # Fetch profile picture from user_profiles table
+    profile_query = user_profiles.select().where(user_profiles.c.user_id == db_user["id"])
+    profile = await database.fetch_one(profile_query)
+    profile_picture = profile["profile_picture"] if profile else None
+
     # Create access token
     access_token_expires = timedelta(minutes=60)
     access_token = create_access_token(
@@ -87,12 +97,13 @@ async def login(user: UserLogin):
         }
     )
 
-    # Build user data for frontend
+    # Build user data for frontend (including profile_picture)
     user_data = {
         "id": db_user["id"],
         "username": db_user["username"],
         "email": db_user["email"],
-        "role": db_user["role"]
+        "role": db_user["role"],
+        "profile_picture": profile_picture,
     }
 
     return {
@@ -119,14 +130,37 @@ async def read_current_user(current_user: dict = Depends(get_current_user)):
 # =====================
 # Update Profile
 # =====================
+# @router.put("/me", response_model=UserRead)
+# async def update_profile(user_update: UserUpdate, current_user: dict = Depends(get_current_user)):
+#     if user_update.email and user_update.email != current_user["email"]:
+#         query = users.select().where(users.c.email == user_update.email)
+#         existing_user = await database.fetch_one(query)
+#         if existing_user:
+#             raise HTTPException(status_code=400, detail="Email already in use")
+
+#     updated_user = await update_user(current_user["id"], user_update)
+#     if updated_user is None:
+#         raise HTTPException(status_code=404, detail="User not found")
+
+#     return UserRead(
+#         id=updated_user["id"],
+#         username=updated_user["username"],
+#         email=updated_user["email"]
+#     )
+
 @router.put("/me", response_model=UserRead)
-async def update_profile(user_update: UserUpdate, current_user: dict = Depends(get_current_user)):
+async def update_profile(
+    user_update: UserUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    # Check if email update is requested and email is new
     if user_update.email and user_update.email != current_user["email"]:
         query = users.select().where(users.c.email == user_update.email)
         existing_user = await database.fetch_one(query)
         if existing_user:
             raise HTTPException(status_code=400, detail="Email already in use")
 
+    # Call your update function to modify user
     updated_user = await update_user(current_user["id"], user_update)
     if updated_user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -136,6 +170,195 @@ async def update_profile(user_update: UserUpdate, current_user: dict = Depends(g
         username=updated_user["username"],
         email=updated_user["email"]
     )
+
+
+# =====================
+# Get Current User Profile
+# =====================
+@router.get("/me/profile", response_model=UserProfileInDBBase)
+async def read_current_user_profile(current_user: dict = Depends(get_current_user)):
+    try:
+        # Fetch user core info (email)
+        user_query = users.select().where(users.c.id == current_user["id"])
+        user = await database.fetch_one(user_query)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Fetch extended profile info
+        profile_query = user_profiles.select().where(user_profiles.c.user_id == current_user["id"])
+        profile = await database.fetch_one(profile_query)
+
+        # Assemble combined response dict
+        response = {
+            "user_id": user["id"],
+            "full_name": profile["full_name"] if profile else None,
+            "profile_picture": profile["profile_picture"] if profile else None,
+            "contact_number": profile["contact_number"] if profile else None,
+            "date_of_birth": profile["date_of_birth"].isoformat() if profile and profile["date_of_birth"] else None,
+            "bio": profile["bio"] if profile else None,
+            "email": user["email"],
+            "created_at": profile["created_at"] if profile else None,
+            "updated_at": profile["updated_at"] if profile else None,
+        }
+        print(response, flush=True)
+        return response
+    except Exception as e:
+        import logging
+        logging.error(f"Error fetching user profile for user {current_user['id']}: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+# =====================
+# Update Current User Profile
+# =====================
+# @router.put("/me/profile", response_model=UserProfileInDBBase)
+# async def update_current_user_profile(
+#     profile_update: UserProfileUpdate,
+#     image: UploadFile = File(None),
+#     current_user: dict = Depends(get_current_user),
+# ):
+#     # Extract email from the update data if present
+#     update_data = profile_update.dict(exclude_unset=True)
+#     email_update = None
+    
+#     if 'email' in update_data:
+#         email_update = update_data['email']
+#         del update_data['email']  # Remove from profile data
+        
+#         # Check if email is already in use
+#         query = users.select().where(users.c.email == email_update)
+#         existing_user = await database.fetch_one(query)
+#         if existing_user and existing_user["id"] != current_user["id"]:
+#             raise HTTPException(status_code=400, detail="Email already in use")
+        
+#         # Update email in users table
+#         await database.execute(
+#             users.update()
+#             .where(users.c.id == current_user["id"])
+#             .values(email=email_update)
+#         )
+    
+#     # Handle profile update in user_profiles table
+#     query = user_profiles.select().where(user_profiles.c.user_id == current_user["id"])
+#     existing_profile = await database.fetch_one(query)
+
+#     if existing_profile:
+#         # Update existing profile
+#         if update_data:  # Only update if there's something to update
+#             await database.execute(
+#                 user_profiles.update()
+#                 .where(user_profiles.c.user_id == current_user["id"])
+#                 .values(**update_data)
+#             )
+#     else:
+#         # Create new profile
+#         create_data = update_data
+#         create_data["user_id"] = current_user["id"]
+#         await database.execute(user_profiles.insert().values(**create_data))
+    
+#     # Fetch updated data from both tables
+#     user = await database.fetch_one(users.select().where(users.c.id == current_user["id"]))
+#     profile = await database.fetch_one(user_profiles.select().where(user_profiles.c.user_id == current_user["id"]))
+    
+#     # Return combined response
+#     return {
+#         "user_id": user["id"],
+#         "full_name": profile["full_name"] if profile else None,
+#         "profile_picture": profile["profile_picture"] if profile else None,
+#         "contact_number": profile["contact_number"] if profile else None,
+#         "date_of_birth": profile["date_of_birth"].isoformat() if profile and profile["date_of_birth"] else None,
+#         "bio": profile["bio"] if profile else None,
+#         "email": user["email"],
+#         "created_at": profile["created_at"] if profile else None,
+#         "updated_at": profile["updated_at"] if profile else None,
+#     }
+
+@router.put("/me/profile", response_model=UserProfileInDBBase)
+async def update_current_user_profile(
+    full_name: str = Form(None, alias="fullName"),
+    email: str = Form(...),
+    contact_number: str = Form(None, alias="contactNumber"),
+    date_of_birth: str = Form(None, alias="dateOfBirth"),
+    bio: str = Form(None),
+    image: UploadFile = File(None),
+    current_user: dict = Depends(get_current_user),
+):
+    # Validate if email update is requested
+    if email != current_user["email"]:
+        query = users.select().where(users.c.email == email)
+        existing_user = await database.fetch_one(query)
+        if existing_user and existing_user["id"] != current_user["id"]:
+            raise HTTPException(status_code=400, detail="Email already in use")
+
+        # Update email in users table
+        await database.execute(
+            users.update()
+            .where(users.c.id == current_user["id"])
+            .values(email=email)
+        )
+
+    # Prepare dictionary of update fields for user_profiles table
+    update_data = {
+        "full_name": full_name,
+        "contact_number": contact_number,
+        "bio": bio,
+    }
+    # parse date_of_birth string to date (optional)
+    if date_of_birth:
+        try:
+            update_data["date_of_birth"] = datetime.strptime(date_of_birth, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format for dateOfBirth, expected YYYY-MM-DD")
+
+    # Handle uploaded profile picture file
+    if image:
+        image_dir = "static/profile_pictures"
+        os.makedirs(image_dir, exist_ok=True)
+        filepath = os.path.join(image_dir, image.filename)
+        with open(filepath, "wb") as buffer:
+            buffer.write(await image.read())
+        update_data["profile_picture"] = f"/{filepath}"
+
+    # Remove None values from update_data
+    update_data = {k: v for k, v in update_data.items() if v is not None}
+
+    # Check if user profile exists
+    query = user_profiles.select().where(user_profiles.c.user_id == current_user["id"])
+    existing_profile = await database.fetch_one(query)
+
+    if existing_profile:
+        # Update existing profile
+        if update_data:  # Only update if data present
+            await database.execute(
+                user_profiles.update()
+                .where(user_profiles.c.user_id == current_user["id"])
+                .values(**update_data)
+            )
+    else:
+        # Create new profile entry
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No profile data to update")
+        create_data = update_data
+        create_data["user_id"] = current_user["id"]
+        await database.execute(user_profiles.insert().values(**create_data))
+
+    # Fetch updated data from both tables
+    user = await database.fetch_one(users.select().where(users.c.id == current_user["id"]))
+    profile = await database.fetch_one(user_profiles.select().where(user_profiles.c.user_id == current_user["id"]))
+
+    # Return combined response, converting date_of_birth to ISO string if present
+    return {
+        "user_id": user["id"],
+        "full_name": profile["full_name"] if profile else None,
+        "profile_picture": profile["profile_picture"] if profile else None,
+        "contact_number": profile["contact_number"] if profile else None,
+        "date_of_birth": profile["date_of_birth"].isoformat() if profile and profile["date_of_birth"] else None,
+        "bio": profile["bio"] if profile else None,
+        "email": user["email"],
+        "created_at": profile["created_at"] if profile else None,
+        "updated_at": profile["updated_at"] if profile else None,
+    }
+
 
 # =====================
 # Admin: List Users
@@ -245,3 +468,17 @@ async def admin_update_user(user_id: int, user_update: UserUpdate):
 
     updated_user = await database.fetch_one(users.select().where(users.c.id == user_id))
     return UserRead(**updated_user)
+
+@router.put("/me/password")
+async def change_password(
+    data: ChangePasswordRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    user = await database.fetch_one(users.select().where(users.c.id == current_user["id"]))
+
+    if not pwd_context.verify(data.current_password, user["hashed_password"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    hashed_new = pwd_context.hash(data.new_password)
+    await database.execute(users.update().where(users.c.id == user["id"]).values(hashed_password=hashed_new))
+    return {"message": "Password updated successfully"}
