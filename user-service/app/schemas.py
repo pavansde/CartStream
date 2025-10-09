@@ -70,7 +70,7 @@ class UserProfileUpdateForm(BaseModel):
     email: EmailStr
 
     class Config:
-        allow_population_by_field_name = True
+        validate_by_name = True
 
 
 class UserProfileInDBBase(UserProfileBase):
@@ -93,6 +93,31 @@ class Token(BaseModel):
     refresh_token: str   # new addition
     token_type: str = "bearer"
 
+# ========================= 
+# Product Variant Schemas
+# =========================
+class ProductVariantBase(BaseModel):
+    size: Optional[str] = None
+    color: Optional[str] = None
+    price: Optional[float] = Field(None, ge=0)      # nullable, fallback to base item price
+    stock: Optional[int] = Field(0, ge=0)
+    image_url: Optional[str] = None
+
+
+class ProductVariantCreate(ProductVariantBase):
+    item_id: int                                 # link to base product required
+
+
+class ProductVariantUpdate(ProductVariantBase):
+    pass   # all fields optional for partial updates
+
+
+class ProductVariantRead(ProductVariantBase):
+    id: int
+    item_id: int
+
+    class Config:
+        from_attributes = True
 
 # =========================
 # Item Schemas
@@ -116,6 +141,7 @@ class ItemRead(ItemBase):
     owner_id: int
     image_url: Optional[str] = None
     low_stock_alert: bool = False        # always included, default False
+    variants: Optional[List[ProductVariantRead]] = []   # new field to hold variants
 
     class Config:
         from_attributes = True
@@ -204,6 +230,7 @@ class OrderCreate(BaseModel):
     coupon_code: Optional[str] = None
     shipping_address: AddressCreate
     shipping_charge: Optional[float] = 0.0
+    transaction_id: Optional[str] = None
 
 class OrderRead(BaseModel):
     id: int
@@ -223,6 +250,21 @@ class OrderRead(BaseModel):
 class OrderUpdateStatus(BaseModel):
     status: str
 
+
+# ========================= 
+# Payment Schemas
+# =========================
+class PaymentInitiateRequest(BaseModel):
+    amount: float
+    orderId: str
+    customerId: str
+    callbackUrl: str
+    redirectUrl: str
+
+class PhonePeWebhookPayload(BaseModel):
+    transactionId: str
+    status: str
+    # add other fields as per webhook request
 
 # =========================
 # Wishlist Schemas

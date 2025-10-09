@@ -5,7 +5,7 @@ from pydantic import BaseModel, EmailStr
 from datetime import timedelta
 import os
 from datetime import datetime
-
+import secrets
 from app.database import database
 from app.models import users, user_profiles
 from app.schemas import UserCreate, UserRead, UserLogin, UserUpdate, UserProfileInDBBase, UserProfileUpdateForm
@@ -17,7 +17,8 @@ from app.auth import (
 )
 from app.crud import update_user, update_user_profile, get_user_profile, create_user_profile
 from app.deps import get_current_user, get_current_admin_user
-from app.email import send_reset_email
+from app.email import send_reset_email, send_verification_email, send_welcome_email
+import logging
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -39,37 +40,161 @@ class ChangePasswordRequest(BaseModel):
 # =====================
 # Create User
 # =====================
+# @router.post("/users/", response_model=UserRead)
+# async def create_user(user: UserCreate):
+#     query = users.select().where(users.c.email == user.email)
+#     existing_user = await database.fetch_one(query)
+#     if existing_user:
+#         raise HTTPException(status_code=400, detail="Email already registered")
+
+#     hashed_password = pwd_context.hash(user.password)
+#     # Default role is "customer" if not provided or invalid
+#     role = user.role.lower() if user.role and user.role.lower() in ["admin", "shop_owner", "customer"] else "customer"
+
+#     query = users.insert().values(
+#         username=user.username,
+#         email=user.email,
+#         hashed_password=hashed_password,
+#         role=role
+#     )
+#     user_id = await database.execute(query)
+#     return UserRead(id=user_id, username=user.username, email=user.email)
+
 @router.post("/users/", response_model=UserRead)
-async def create_user(user: UserCreate):
+async def create_user(user: UserCreate, background_tasks: BackgroundTasks):
     query = users.select().where(users.c.email == user.email)
     existing_user = await database.fetch_one(query)
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
     hashed_password = pwd_context.hash(user.password)
-    # Default role is "customer" if not provided or invalid
     role = user.role.lower() if user.role and user.role.lower() in ["admin", "shop_owner", "customer"] else "customer"
+
+    verification_token = secrets.token_urlsafe(32)
+    # Optionally add expiry: datetime.utcnow() + timedelta(hours=24)
 
     query = users.insert().values(
         username=user.username,
         email=user.email,
         hashed_password=hashed_password,
-        role=role
+        role=role,
+        is_verified=False,
+        verification_token=verification_token
     )
     user_id = await database.execute(query)
-    return UserRead(id=user_id, username=user.username, email=user.email)
+
+    # Send verification email in background
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://10.10.10.187:3000")
+    verify_link = f"{FRONTEND_URL}/verify-email?token={verification_token}"
+    # background_tasks.add_task(send_verification_email, to_email=user.email, verify_link=verify_link)
+    logging.info(f"Scheduling verification email to {user.email} with link {verify_link}")
+
+    background_tasks.add_task(send_verification_email, to_email=user.email, verification_link=verify_link)
+
+
+    return UserRead(id=user_id, username=user.username, email=user.email, role=role)
 
 
 # =====================
-# Login
+# Verify Email
 # =====================
+# @router.get("/verify-email")
+# async def verify_email(token: str):
+#     query = users.select().where(users.c.verification_token == token)
+#     user = await database.fetch_one(query)
+#     if not user:
+#         raise HTTPException(status_code=400, detail="Invalid or expired token")
+#     if user["is_verified"]:
+#         return {"message": "Email already verified"}
+
+#     # Optionally check expiry
+#     update_query = users.update().where(users.c.id == user["id"]).values(is_verified=True, verification_token=None)
+#     await database.execute(update_query)
+
+#     # Send welcome email after verification
+#     send_welcome_email(to_email=user["email"], username=user["username"])
+#     return {"message": "Email successfully verified"}
+
+@router.get("/verify-email")
+async def verify_email(token: str):
+    user = await database.fetch_one(users.select().where(users.c.verification_token == token))
+    if not user:
+        print("Token invalid or expired:", token)
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+    if user["is_verified"]:
+        print("User already verified:", user["email"])
+        return {"message": "Email already verified"}
+    await database.execute(users.update().where(users.c.id == user["id"]).values(is_verified=True, verification_token=None))
+    send_welcome_email(to_email=user["email"], username=user["username"])
+    print("Verification successful for:", user["email"])
+    return {"message": "Email successfully verified"}
+
+
+
+
+# # =====================
+# # Login
+# # =====================
+# @router.post("/login/")
+# async def login(user: UserLogin):
+#     query = users.select().where(users.c.email == user.email)
+#     db_user = await database.fetch_one(query)
+
+#     # Verify password
+#     if not db_user or not pwd_context.verify(user.password, db_user["hashed_password"]):
+#         raise HTTPException(status_code=400, detail="Invalid email or password")
+
+#     # Fetch profile picture from user_profiles table
+#     profile_query = user_profiles.select().where(user_profiles.c.user_id == db_user["id"])
+#     profile = await database.fetch_one(profile_query)
+#     profile_picture = profile["profile_picture"] if profile else None
+
+#     # Create access token
+#     access_token_expires = timedelta(minutes=60)
+#     access_token = create_access_token(
+#         data={
+#             "sub": db_user["email"],
+#             "user_id": db_user["id"],
+#             "role": db_user["role"]  # role might be 'admin', 'shop_owner', 'customer'
+#         },
+#         expires_delta=access_token_expires
+#     )
+
+#     # Create refresh token
+#     refresh_token = create_refresh_token(
+#         data={
+#             "sub": db_user["email"],
+#             "user_id": db_user["id"],
+#             "role": db_user["role"]
+#         }
+#     )
+
+#     # Build user data for frontend (including profile_picture)
+#     user_data = {
+#         "id": db_user["id"],
+#         "username": db_user["username"],
+#         "email": db_user["email"],
+#         "role": db_user["role"],
+#         "profile_picture": profile_picture,
+#     }
+
+#     return {
+#         "access_token": access_token,
+#         "refresh_token": refresh_token,
+#         "user": user_data
+#     }
+
 @router.post("/login/")
 async def login(user: UserLogin):
     query = users.select().where(users.c.email == user.email)
     db_user = await database.fetch_one(query)
 
+    # Check if user exists and is verified
+    if not db_user or db_user["is_verified"] != 1:
+        raise HTTPException(status_code=400, detail="Invalid email or user not verified")
+
     # Verify password
-    if not db_user or not pwd_context.verify(user.password, db_user["hashed_password"]):
+    if not pwd_context.verify(user.password, db_user["hashed_password"]):
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
     # Fetch profile picture from user_profiles table
@@ -130,24 +255,6 @@ async def read_current_user(current_user: dict = Depends(get_current_user)):
 # =====================
 # Update Profile
 # =====================
-# @router.put("/me", response_model=UserRead)
-# async def update_profile(user_update: UserUpdate, current_user: dict = Depends(get_current_user)):
-#     if user_update.email and user_update.email != current_user["email"]:
-#         query = users.select().where(users.c.email == user_update.email)
-#         existing_user = await database.fetch_one(query)
-#         if existing_user:
-#             raise HTTPException(status_code=400, detail="Email already in use")
-
-#     updated_user = await update_user(current_user["id"], user_update)
-#     if updated_user is None:
-#         raise HTTPException(status_code=404, detail="User not found")
-
-#     return UserRead(
-#         id=updated_user["id"],
-#         username=updated_user["username"],
-#         email=updated_user["email"]
-#     )
-
 @router.put("/me", response_model=UserRead)
 async def update_profile(
     user_update: UserUpdate,
@@ -211,68 +318,6 @@ async def read_current_user_profile(current_user: dict = Depends(get_current_use
 # =====================
 # Update Current User Profile
 # =====================
-# @router.put("/me/profile", response_model=UserProfileInDBBase)
-# async def update_current_user_profile(
-#     profile_update: UserProfileUpdate,
-#     image: UploadFile = File(None),
-#     current_user: dict = Depends(get_current_user),
-# ):
-#     # Extract email from the update data if present
-#     update_data = profile_update.dict(exclude_unset=True)
-#     email_update = None
-    
-#     if 'email' in update_data:
-#         email_update = update_data['email']
-#         del update_data['email']  # Remove from profile data
-        
-#         # Check if email is already in use
-#         query = users.select().where(users.c.email == email_update)
-#         existing_user = await database.fetch_one(query)
-#         if existing_user and existing_user["id"] != current_user["id"]:
-#             raise HTTPException(status_code=400, detail="Email already in use")
-        
-#         # Update email in users table
-#         await database.execute(
-#             users.update()
-#             .where(users.c.id == current_user["id"])
-#             .values(email=email_update)
-#         )
-    
-#     # Handle profile update in user_profiles table
-#     query = user_profiles.select().where(user_profiles.c.user_id == current_user["id"])
-#     existing_profile = await database.fetch_one(query)
-
-#     if existing_profile:
-#         # Update existing profile
-#         if update_data:  # Only update if there's something to update
-#             await database.execute(
-#                 user_profiles.update()
-#                 .where(user_profiles.c.user_id == current_user["id"])
-#                 .values(**update_data)
-#             )
-#     else:
-#         # Create new profile
-#         create_data = update_data
-#         create_data["user_id"] = current_user["id"]
-#         await database.execute(user_profiles.insert().values(**create_data))
-    
-#     # Fetch updated data from both tables
-#     user = await database.fetch_one(users.select().where(users.c.id == current_user["id"]))
-#     profile = await database.fetch_one(user_profiles.select().where(user_profiles.c.user_id == current_user["id"]))
-    
-#     # Return combined response
-#     return {
-#         "user_id": user["id"],
-#         "full_name": profile["full_name"] if profile else None,
-#         "profile_picture": profile["profile_picture"] if profile else None,
-#         "contact_number": profile["contact_number"] if profile else None,
-#         "date_of_birth": profile["date_of_birth"].isoformat() if profile and profile["date_of_birth"] else None,
-#         "bio": profile["bio"] if profile else None,
-#         "email": user["email"],
-#         "created_at": profile["created_at"] if profile else None,
-#         "updated_at": profile["updated_at"] if profile else None,
-#     }
-
 @router.put("/me/profile", response_model=UserProfileInDBBase)
 async def update_current_user_profile(
     full_name: str = Form(None, alias="fullName"),
@@ -420,6 +465,9 @@ async def reset_password(data: ResetPasswordRequest):
 
     return {"message": "Password successfully reset"}
 
+# =====================
+# Admin: Update User
+# =====================
 @router.put("/users/{user_id}", response_model=UserRead, dependencies=[Depends(get_current_admin_user)])
 async def admin_update_user(user_id: int, user_update: UserUpdate):
     query = users.select().where(users.c.id == user_id)
@@ -449,7 +497,7 @@ async def admin_update_user(user_id: int, user_update: UserUpdate):
 
     if user_update.role:
         role_map = {
-            "admin": "Admin",
+            "admin": "admin",
             "shopowner": "ShopOwner",
             "shop_owner": "ShopOwner",
             "shop owner": "ShopOwner",

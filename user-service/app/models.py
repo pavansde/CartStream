@@ -9,12 +9,31 @@ users = Table(
     "users",
     metadata,
     Column("id", Integer, primary_key=True),
-    Column("username", String(50), unique=True, index=True),
-    Column("email", String(100), unique=True, index=True),
-    Column("hashed_password", String(128)),
-    # Default role is now 'customer' for regular users
-    Column("role", String(20), default="customer", nullable=False),
+    Column("username", String(length=50), nullable=False, unique=True),
+    Column("email", String(length=255), nullable=False, unique=True),
+    Column("hashed_password", String(length=255), nullable=False),
+    Column("role", String(length=50), nullable=False),
+    Column("is_verified", Boolean, nullable=False, default=False),
+    Column("verification_token", String(length=255), nullable=True),
+    Column("verification_token_expiry", DateTime, nullable=True),  # optional
 )
+
+
+# ===== Product Variants Table =====
+product_variants = Table(
+    "product_variants",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("item_id", Integer, ForeignKey("items.id", ondelete="CASCADE"), nullable=False),
+    Column("size", String(50), nullable=True),
+    Column("color", String(50), nullable=True),
+    Column("price", Float, nullable=True),  # Variant-specific price (nullable to fallback on item's price)
+    Column("stock", Integer, default=0),
+    Column("image_url", String(255), nullable=True),
+    UniqueConstraint("item_id", "size", "color", name="unique_variant"),
+)
+
+
 
 # ===== User Profiles Table =====
 
@@ -54,7 +73,9 @@ orders = Table(
     Column("order_date", DateTime, default=datetime.utcnow),
     Column("total_price", Float, nullable=False),
     Column("coupon_code", String(64), nullable=True),  # adjust length as needed
+    Column("transaction_id", String(128), nullable=True, unique=True, index=True),  # add this
     Column("shipping_address_id", Integer, ForeignKey("addresses.id"), nullable=True),  # Add this
+
 
 )
 

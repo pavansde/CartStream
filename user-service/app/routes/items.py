@@ -25,6 +25,18 @@ async def list_items():
 
 
 # =====================
+# Public → get item details by ID
+# =====================
+@router.get("/items/{item_id}", response_model=ItemRead)
+async def get_item_detail(item_id: int):
+    item = await database.fetch_one(items.select().where(items.c.id == item_id))
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return {**dict(item), "low_stock_alert": item["stock"] < LOW_STOCK_THRESHOLD}
+
+
+
+# =====================
 # Shop Owner → list own items with low stock alert
 # =====================
 @router.get("/items/mine", response_model=List[ItemRead])

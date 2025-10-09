@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import List
 from app.database import database
-from app.models import orders, items, order_items, coupons, addresses
+from app.models import orders, items, order_items, coupons, addresses, users
 from app.deps import get_current_user, get_current_shop_owner, get_current_admin_user
-from app.schemas import OrderCreate, OrderRead, OrderUpdateStatus, Message, OrderItemRead
+from app.schemas import OrderCreate, OrderRead, OrderUpdateStatus, Message, OrderItemRead, PaymentInitiateRequest, PhonePeWebhookPayload
 from app.crud import create_notification
 from datetime import datetime, timezone, timedelta
+from app.email import send_order_confirmation, send_order_status_notification
+import asyncio
+import uuid
 
 
 
@@ -32,23 +35,21 @@ async def create_order(order: OrderCreate, current_user=Depends(get_current_user
 
     async with database.transaction():
         total_order_price = 0
-
-        # Validate items and stock, calculate total price
+        # Fetch and cache item data to avoid multiple DB calls
+        item_data_map = {}
         for item in order.items:
             item_data = await database.fetch_one(items.select().where(items.c.id == item.item_id))
-            print(f"Fetched item_data for item_id={item.item_id}: {item_data}", flush=True)
             if not item_data:
                 raise HTTPException(status_code=404, detail=f"Item {item.item_id} not found")
             if item_data["stock"] is not None and item_data["stock"] < item.quantity:
                 raise HTTPException(status_code=400, detail=f"Not enough stock for item {item.item_id}")
+            item_data_map[item.item_id] = item_data
             total_order_price += item_data["price"] * item.quantity
 
         print(f"Total order price calculated: {total_order_price}", flush=True)
 
         inserted_address_id = None
-
         if hasattr(order, "shipping_address_id") and order.shipping_address_id:
-            # Use existing saved address id
             inserted_address_id = order.shipping_address_id
             print(f"Using existing shipping_address_id: {inserted_address_id}", flush=True)
         elif hasattr(order, "shipping_address") and order.shipping_address:
@@ -56,7 +57,6 @@ async def create_order(order: OrderCreate, current_user=Depends(get_current_user
                 address_values = order.shipping_address.dict()
                 address_values["user_id"] = current_user["id"]
 
-                # Check for existing identical address
                 query = (
                     addresses.select()
                     .where(addresses.c.user_id == current_user["id"])
@@ -87,8 +87,8 @@ async def create_order(order: OrderCreate, current_user=Depends(get_current_user
         else:
             raise HTTPException(status_code=400, detail="Shipping address data is required")
 
-        # Apply coupon discount if any
         discount_amount = 0.0
+        coupon = None
         if hasattr(order, "coupon_code") and order.coupon_code:
             coupon = await database.fetch_one(coupons.select().where(coupons.c.code == order.coupon_code))
             print(f"Coupon fetched: {coupon}", flush=True)
@@ -105,8 +105,8 @@ async def create_order(order: OrderCreate, current_user=Depends(get_current_user
 
         final_total_price = total_order_price - discount_amount + shipping_charge
         print(f"Final total price after discount and shipping: {final_total_price}", flush=True)
+        transaction_id = getattr(order, "transaction_id", None)
 
-        # Insert order with calculated total_price and IST timestamp
         try:
             order_values = {
                 "customer_id": current_user["id"],
@@ -115,8 +115,10 @@ async def create_order(order: OrderCreate, current_user=Depends(get_current_user
                 "order_date": now,
                 "shipping_address_id": inserted_address_id,
             }
-            if hasattr(order, "coupon_code") and order.coupon_code:
-                order_values["coupon_code"] = order.coupon_code
+            if transaction_id:
+                order_values["transaction_id"] = transaction_id
+            if coupon:
+                order_values["coupon_code"] = coupon.code
             order_id = await database.execute(orders.insert().values(**order_values))
             print(f"Inserted order with ID: {order_id}", flush=True)
         except Exception as e:
@@ -125,7 +127,7 @@ async def create_order(order: OrderCreate, current_user=Depends(get_current_user
 
         # Insert order items and update stocks
         for item in order.items:
-            item_data = await database.fetch_one(items.select().where(items.c.id == item.item_id))
+            item_data = item_data_map[item.item_id]
             line_total_price = item_data["price"] * item.quantity
             print(f"Inserting order item: order_id={order_id}, item_id={item.item_id}, quantity={item.quantity}, line_total_price={line_total_price}", flush=True)
             try:
@@ -164,7 +166,7 @@ async def create_order(order: OrderCreate, current_user=Depends(get_current_user
                     print(f"Exception sending notification for item_id={item.item_id}: {e}", flush=True)
 
         # Increment coupon usage count atomically if coupon applied
-        if hasattr(order, "coupon_code") and order.coupon_code:
+        if coupon:
             try:
                 new_used_count = (coupon.used_count or 0) + 1
                 await database.execute(
@@ -176,10 +178,51 @@ async def create_order(order: OrderCreate, current_user=Depends(get_current_user
             except Exception as e:
                 print(f"Error incrementing coupon usage: {e}", flush=True)
 
+        # Prepare order summary for emails
+        full_order_summary = "\n".join(
+            [f"{item_data_map[item.item_id]['title']} x {item.quantity} - ₹{item_data_map[item.item_id]['price'] * item.quantity:.2f}" for item in order.items]
+        )
+        total_amount_str = f"₹{final_total_price:.2f}"
+
+        # Send confirmation to customer
+        send_order_confirmation(
+            to_email=current_user["email"],
+            order_id=order_id,
+            order_summary=full_order_summary,
+            total_amount=total_amount_str,
+            recipient_role="customer"
+        )
+
+        # Group items by shop owner
+        shop_owner_orders = {}
+        for item in order.items:
+            item_data = item_data_map[item.item_id]
+            owner_id = item_data["owner_id"]
+            shop_owner_orders.setdefault(owner_id, []).append(item)
+
+        # Send confirmation to each shop owner
+        for owner_id, items_group in shop_owner_orders.items():
+            owner = await database.fetch_one(users.select().where(users.c.id == owner_id))
+            if not owner:
+                continue
+            shop_order_summary = "\n".join(
+                [f"{item_data_map[item.item_id]['title']} x {item.quantity} - ₹{item_data_map[item.item_id]['price'] * item.quantity:.2f}" for item in items_group]
+            )
+            shop_order_total = sum(item_data_map[item.item_id]['price'] * item.quantity for item in items_group)
+
+            # Optional customization for shop owner message
+            shop_owner_message = {shop_order_summary}
+
+            send_order_confirmation(
+                to_email=owner["email"],
+                order_id=order_id,
+                order_summary=shop_owner_message,
+                total_amount=f"₹{shop_order_total:.2f}",
+                recipient_role="shopowner"
+            )
+
     print("Order created successfully", flush=True)
     return {"message": "Order placed successfully"}
-
-
 
 
 
@@ -325,7 +368,7 @@ async def shop_owner_orders(current_user=Depends(get_current_shop_owner)):
 # =====================
 @router.put("/shop-owner/orders/{order_id}/status", response_model=Message, dependencies=[Depends(get_current_shop_owner)])
 async def shop_owner_update_order_status(order_id: int, status_data: OrderUpdateStatus, current_user=Depends(get_current_shop_owner)):
-    # Check if this shop owner owns at least one item in this order
+    # Authorize shop owner for this order
     query = """
         SELECT 1 FROM order_items oi
         JOIN items i ON oi.item_id = i.id
@@ -340,10 +383,27 @@ async def shop_owner_update_order_status(order_id: int, status_data: OrderUpdate
     if not existing_order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # Update order status
     await database.execute(
         orders.update().where(orders.c.id == order_id).values(status=status_data.status)
     )
+
+    # Send shipping notification email if status is "shipped"
+    if status_data.status.lower() in ["processing", "shipped", "delivered", "cancelled"]:
+        # Get customer email from order info
+        customer_id = existing_order["customer_id"]
+        customer = await database.fetch_one(users.select().where(users.c.id == customer_id))
+        if customer:
+            tracking_number = status_data.tracking_number if hasattr(status_data, "tracking_number") else "N/A"
+            send_order_status_notification(
+                to_email=customer["email"],
+                order_id=order_id,
+                status=status_data.status,
+                tracking_number=tracking_number
+            )
+
     return {"message": f"Order {order_id} status updated to {status_data.status}"}
+
 
 
 # # =====================
@@ -420,3 +480,201 @@ async def update_order_status(order_id: int, status_data: OrderUpdateStatus):
     )
     return {"message": f"Order {order_id} status updated to {status_data.status}"}
 
+
+
+
+# =====================
+# Customer → Get Order Invoice
+# =====================
+@router.get("/orders/{order_id}/invoice")
+async def get_order_invoice(order_id: int, current_user=Depends(get_current_user)):
+    # Verify the order belongs to the current user
+    order_query = orders.select().where(
+        (orders.c.id == order_id) & 
+        (orders.c.customer_id == current_user["id"])
+    )
+    order = await database.fetch_one(order_query)
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Fetch complete invoice data with correct column names
+    invoice_query = """
+    SELECT 
+        o.id as order_id,
+        o.order_date,
+        o.total_price,
+        o.status,
+        o.coupon_code,
+        u.username as customer_name,
+        u.email as customer_email,
+        up.contact_number as customer_phone,
+        a.full_name as shipping_name,
+        a.phone as shipping_phone,
+        a.address_line1,
+        a.address_line2,
+        a.city,
+        a.state,
+        a.postal_code,
+        a.country,
+        oi.quantity,
+        oi.line_total_price,
+        i.title as item_title,
+        i.description,
+        i.image_url,
+        i.price as unit_price,
+        c.discount_type,
+        c.discount_value,
+        c.code as coupon_code
+    FROM orders o
+    LEFT JOIN users u ON o.customer_id = u.id
+    LEFT JOIN user_profiles up ON u.id = up.user_id
+    LEFT JOIN addresses a ON o.shipping_address_id = a.id
+    LEFT JOIN order_items oi ON o.id = oi.order_id
+    LEFT JOIN items i ON oi.item_id = i.id
+    LEFT JOIN coupons c ON o.coupon_code = c.code
+    WHERE o.id = :order_id
+    """
+    
+    rows = await database.fetch_all(invoice_query, values={"order_id": order_id})
+    
+    if not rows:
+        raise HTTPException(status_code=404, detail="Invoice data not found")
+
+    # Structure the invoice data
+    invoice_data = {
+        "order_id": rows[0]["order_id"],
+        "order_date": rows[0]["order_date"],
+        "total_price": rows[0]["total_price"],
+        "status": rows[0]["status"],
+        "customer": {
+            "name": rows[0]["customer_name"],
+            "email": rows[0]["customer_email"],
+            "phone": rows[0]["customer_phone"]
+        },
+        "shipping_address": {
+            "full_name": rows[0]["shipping_name"],
+            "phone": rows[0]["shipping_phone"],
+            "address_line1": rows[0]["address_line1"],
+            "address_line2": rows[0]["address_line2"],
+            "city": rows[0]["city"],
+            "state": rows[0]["state"],
+            "postal_code": rows[0]["postal_code"],
+            "country": rows[0]["country"]
+        },
+        "items": [],
+        "coupon": None
+    }
+
+    # Add items
+    for row in rows:
+        if row["item_title"]:  # Only add if there's an item
+            invoice_data["items"].append({
+                "item_title": row["item_title"],
+                "description": row["description"],
+                "image_url": row["image_url"],
+                "unit_price": row["unit_price"],
+                "quantity": row["quantity"],
+                "line_total_price": row["line_total_price"]
+            })
+
+    # Add coupon info if exists
+    if rows[0]["coupon_code"]:
+        invoice_data["coupon"] = {
+            "code": rows[0]["coupon_code"],
+            "discount_type": rows[0]["discount_type"],
+            "discount_value": rows[0]["discount_value"]
+        }
+
+    return invoice_data
+
+
+# =====================
+# PhonePe Payment
+# =====================
+@router.post("/payment/phonepe/initiate")
+async def initiate_phonepe_payment(request_data: PaymentInitiateRequest):
+    # First get auth token
+    auth_response = await get_auth_token()  
+    token = auth_response.get("token")
+    if not token:
+        raise HTTPException(status_code=500, detail="Failed to get authorization token")
+
+    transaction_id = str(uuid.uuid4())
+    payload = {
+        "merchantId": MERCHANT_ID,
+        "transactionId": transaction_id,
+        "amount": str(request_data.amount),
+        "orderId": request_data.orderId,
+        "customerId": request_data.customerId,
+        "redirectUrl": request_data.redirectUrl,
+        "callbackUrl": request_data.callbackUrl,
+        "paymentModeConfig": {
+            "upi": {"show": True},
+            "wallet": {"show": False},
+            "card": {"show": False},
+            "netBanking": {"show": False}
+        }
+    }
+
+    url = f"{PHONEPE_SANDBOX_BASE_URL}/v1/initiatePayment"
+    body_str = json.dumps(payload, separators=(',', ':'))
+    timestamp = str(int(time.time()))
+    message = f"{url}:{body_str}:{timestamp}"
+    signature = base64.b64encode(hmac.new(MERCHANT_KEY.encode(), message.encode(), hashlib.sha256).digest()).decode()
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}",
+        "X-VERIFY": signature,
+        "X-VERIFY-TIMESTAMP": timestamp,
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=payload, headers=headers)
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail=f"PhonePe error: {response.text}")
+        resp_json = response.json()
+        if not resp_json.get("success", False):
+            raise HTTPException(status_code=400, detail=f"PhonePe failure: {resp_json}")
+
+    payment_url = resp_json["data"]["paymentUrl"]
+
+    # Save transaction ID and order mapping in DB if needed
+
+    return {"paymentUrl": payment_url, "transactionId": transaction_id}
+
+
+# =====================
+# PhonePe Payment Status
+# =====================
+@router.get("/payment/phonepe/status/{transaction_id}")
+async def check_phonepe_payment_status(transaction_id: str):
+    order = await database.fetch_one(orders.select().where(orders.c.transaction_id == transaction_id))
+    if not order:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    # Return payment status field - adapt according to your DB schema
+    return {"status": order.payment_status}
+
+@router.post("/payment/phonepe/webhook")
+async def phonepe_payment_webhook(
+    payload: PhonePeWebhookPayload,
+    request: Request,
+):
+    # TODO: Validate webhook signature for security (PhonePe docs explain this)
+
+    txn_id = payload.transactionId
+    payment_status = payload.status
+
+    # Update order payment status in DB
+    query = (
+        orders.update()
+        .where(orders.c.transaction_id == txn_id)
+        .values(payment_status=payment_status)
+    )
+    await database.execute(query)
+
+    # Optionally send notifications on payment success here
+
+    return {"message": "Webhook received successfully"}
