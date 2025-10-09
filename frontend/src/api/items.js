@@ -3,6 +3,10 @@ import API from "./axios";
 // Publicly available items
 export const getAllItems = () => API.get("/items/");
 
+// Fetch a single item's details by ID (public)
+export const getItemById = (id) => API.get(`/items/${id}`);
+
+
 // Fetch items for the current shop owner
 export const getMyItems = () => API.get("/items/mine");
 

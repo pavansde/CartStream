@@ -29,28 +29,56 @@ export const CartProvider = ({ children }) => {
     localStorage.setItem("cart", JSON.stringify(cart));
   }, [cart]);
 
-  const addItem = useCallback(async (itemId) => {
-  console.log("addItem called with:", itemId);
-  setLoadingIds((prev) => new Set(prev).add(itemId));
-  const newQty = (cart[itemId] || 0) + 1;
-  setCart((prev) => ({ ...prev, [itemId]: newQty }));
+//   const addItem = useCallback(async (itemId) => {
+//   console.log("addItem called with:", itemId);
+//   setLoadingIds((prev) => new Set(prev).add(itemId));
+//   const newQty = (cart[itemId] || 0) + 1;
+//   setCart((prev) => ({ ...prev, [itemId]: newQty }));
 
-  if (user && authToken) {
-    console.log("Calling addOrUpdateCartItem API");
-    try {
-      await addOrUpdateCartItem({ item_id: itemId, quantity: newQty }, authToken);
-      console.log("Cart updated successfully");
-    } catch (err) {
-      console.error("Failed to update backend cart", err);
+//   if (user && authToken) {
+//     console.log("Calling addOrUpdateCartItem API");
+//     try {
+//       await addOrUpdateCartItem({ item_id: itemId, quantity: newQty }, authToken);
+//       console.log("Cart updated successfully");
+//     } catch (err) {
+//       console.error("Failed to update backend cart", err);
+//     }
+//   }
+
+//   setLoadingIds((prev) => {
+//     const copy = new Set(prev);
+//     copy.delete(itemId);
+//     return copy;
+//   });
+// }, [user, authToken, cart]);
+
+// Replace your current addItem function with this:
+const addItem = useCallback(async (itemId, quantityToAdd = 1) => {
+  console.log("addItem called with:", itemId, "quantity:", quantityToAdd);
+  setLoadingIds((prev) => new Set(prev).add(itemId));
+  
+  setCart((prevCart) => {
+    const currentQty = prevCart[itemId] || 0;
+    const newQty = currentQty + quantityToAdd;
+    const newCart = { ...prevCart, [itemId]: newQty };
+    
+    // Make API call with the updated quantity
+    if (user && authToken) {
+      console.log("Calling addOrUpdateCartItem API with quantity:", newQty);
+      addOrUpdateCartItem({ item_id: itemId, quantity: newQty }, authToken)
+        .then(() => console.log("Cart updated successfully"))
+        .catch(err => console.error("Failed to update backend cart", err));
     }
-  }
+    
+    return newCart;
+  });
 
   setLoadingIds((prev) => {
     const copy = new Set(prev);
     copy.delete(itemId);
     return copy;
   });
-}, [user, authToken, cart]);
+}, [user, authToken]);
 
 // Fetch cart items from backend or local
   const fetchCartItems = useCallback(async () => {

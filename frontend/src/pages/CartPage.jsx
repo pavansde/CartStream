@@ -176,7 +176,8 @@ export default function CartPage() {
             >
               <div className="sm:flex sm:items-center sm:space-x-4 flex-1 mb-4 sm:mb-0">
                 <img
-                  src={item.image_url || "/images/placeholder.jpg"}
+                  // src={item.image_url || "/images/placeholder.jpg"}
+                  src={`http://127.0.0.1:8000${item.image_url}`}
                   alt={item.title}
                   className="w-24 h-24 object-cover rounded mr-4"
                   onError={(e) => (e.currentTarget.src = "")}

@@ -51,3 +51,7 @@ export const forgotPassword = (email) =>
 // Reset password using token
 export const resetPassword = (token, newPassword) =>
   API.post("/reset-password", { token, new_password: newPassword });
+
+// Verify email with token
+export const verifyEmail = (token) =>
+  API.get(`/verify-email?token=${token}`);

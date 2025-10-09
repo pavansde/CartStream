@@ -406,6 +406,9 @@ export default function CustomerCheckout() {
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState([]);
 
+
+
+
   const [formData, setFormData] = useState({
     shipping: {
       full_name: "",
@@ -1029,7 +1032,8 @@ export default function CustomerCheckout() {
             <div key={item.id} className="flex justify-between items-center bg-white rounded-xl p-4 shadow-sm">
               <div className="flex items-center gap-4">
                 <img
-                  src={item.image_url || "/api/placeholder/60/60"}
+                  // src={item.image_url || "/api/placeholder/60/60"}
+                  src={`http://127.0.0.1:8000${item.image_url}`}
                   alt={item.title}
                   className="w-16 h-16 object-cover rounded-lg shadow-sm"
                   onError={e => (e.target.src = "/api/placeholder/60/60")}
@@ -1101,7 +1105,8 @@ export default function CustomerCheckout() {
                   <div key={item.id} className="flex justify-between items-center bg-gray-50 rounded-xl p-4">
                     <div className="flex items-center gap-3">
                       <img
-                        src={item.image_url || "/api/placeholder/50/50"}
+                        // src={item.image_url || "/api/placeholder/50/50"}
+                        src={`http://127.0.0.1:8000${item.image_url}`}
                         alt={item.title}
                         className="w-12 h-12 object-cover rounded-lg shadow-sm"
                         onError={e => (e.target.src = "/api/placeholder/50/50")}

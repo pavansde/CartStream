@@ -4,6 +4,8 @@ import { addToWishlist } from "../api/wishlist";
 import { AuthContext } from "../context/AuthContext";
 import { CartContext } from "../context/CartContext";
 import ErrorState from "../components/ErrorState";
+import { Link } from "react-router-dom";
+
 
 export default function PublicItemsPage() {
   const [items, setItems] = useState([]);
@@ -128,11 +130,10 @@ export default function PublicItemsPage() {
     return (
       <div className="fixed top-20 right-4 z-50 animate-in slide-in-from-right duration-300">
         <div
-          className={`flex items-center p-4 rounded-lg shadow-lg border ${
-            toast.type === "success"
-              ? "bg-green-50 border-green-200 text-green-800"
-              : "bg-red-50 border-red-200 text-red-800"
-          }`}
+          className={`flex items-center p-4 rounded-lg shadow-lg border ${toast.type === "success"
+            ? "bg-green-50 border-green-200 text-green-800"
+            : "bg-red-50 border-red-200 text-red-800"
+            }`}
         >
           <div className="flex items-center">
             {toast.type === "success" ? (
@@ -267,63 +268,52 @@ export default function PublicItemsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
           {filteredItems.map((item) => {
+            const imageUrl = `http://10.10.10.77:8000${item.image_url}`;
             const showWishlist = user && user.role === "customer";
             const showCart = true;
 
-            // Clean backslash if any in URLs
-            const cleanUrl = item.image_url?.replace(/\\_/g, "_");
-
             return (
-              <div
+              <Link
+                to={`/items/${item.id}`}
                 key={item.id}
-                className="bg-white rounded-lg shadow-md flex flex-col justify-between p-5 hover:shadow-lg transition-all duration-300 border border-gray-100"
+                className="bg-white rounded-lg shadow-md flex flex-col justify-between p-5 hover:shadow-lg transition-all duration-300 border border-gray-100 cursor-pointer"
+                style={{ textDecoration: "none", color: "inherit" }}
               >
                 <div className="flex-1">
                   <img
-                    src={cleanUrl || "/api/placeholder/200/200"}
+                    src={imageUrl}
                     alt={item.title}
                     className="w-full h-48 object-cover rounded mb-4 bg-gray-100"
                     onError={(e) => {
-                      e.target.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzljYTNiMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
+                      e.target.src =
+                        "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzljYTNiMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
                     }}
                   />
-
-                  <h2 className="font-semibold text-lg mb-2 text-gray-900 line-clamp-2">
-                    {item.title}
-                  </h2>
-                  <p className="text-sm text-gray-600 flex-grow line-clamp-3 mb-3">
-                    {item.description || "No description available"}
-                  </p>
-
-                  <p className="text-green-700 font-bold text-lg mb-3">
-                    ₹{item.price.toFixed(2)}
-                  </p>
-
+                  {/* rest product content */}
+                  <h2 className="font-semibold text-lg mb-2 text-gray-900 line-clamp-2">{item.title}</h2>
+                  <p className="text-sm text-gray-600 flex-grow line-clamp-3 mb-3">{item.description || "No description available"}</p>
+                  <p className="text-green-700 font-bold text-lg mb-3">₹{item.price.toFixed(2)}</p>
                   <div className="mb-4">
                     {item.stock === 0 ? (
-                      <span className="px-3 py-1 text-xs bg-red-100 text-red-800 rounded-full font-medium border border-red-200">
-                        Out of Stock
-                      </span>
+                      <span className="px-3 py-1 text-xs bg-red-100 text-red-800 rounded-full font-medium border border-red-200">Out of Stock</span>
                     ) : item.stock <= 5 ? (
                       <span className="px-3 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full font-medium border border-yellow-200">
                         {item.stock === 1 ? "Only 1 left!" : `Only ${item.stock} left!`}
                       </span>
                     ) : null}
                   </div>
-
                 </div>
 
-                {/* Buttons */}
                 <div className="flex flex-col sm:flex-row gap-2">
                   {showWishlist && (
                     <button
-                      onClick={() => handleAddToWishlist(item.id, item.title)}
+                      onClick={(e) => {
+                        e.preventDefault(); // prevent link navigation on button click
+                        handleAddToWishlist(item.id, item.title);
+                      }}
                       disabled={wishlistLoadingIds.has(item.id)}
-                      className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center ${
-                        wishlistLoadingIds.has(item.id)
-                          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                          : "bg-yellow-500 hover:bg-yellow-600 text-white"
-                      }`}
+                      className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center ${wishlistLoadingIds.has(item.id) ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-yellow-500 hover:bg-yellow-600 text-white"
+                        }`}
                     >
                       {wishlistLoadingIds.has(item.id) ? (
                         <>
@@ -338,15 +328,16 @@ export default function PublicItemsPage() {
                       )}
                     </button>
                   )}
+
                   {showCart && (
                     <button
-                      onClick={() => handleAddToCart(item.id, item.title)}
+                      onClick={(e) => {
+                        e.preventDefault(); // prevent link navigation on button click
+                        handleAddToCart(item.id, item.title);
+                      }}
                       disabled={cartLoadingIds.has(item.id) || item.stock === 0}
-                      className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center ${
-                        cartLoadingIds.has(item.id) || item.stock === 0
-                          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                          : "bg-blue-600 hover:bg-blue-700 text-white"
-                      }`}
+                      className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center ${cartLoadingIds.has(item.id) || item.stock === 0 ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 text-white"
+                        }`}
                     >
                       {cartLoadingIds.has(item.id) ? (
                         <>
@@ -362,10 +353,10 @@ export default function PublicItemsPage() {
                     </button>
                   )}
                 </div>
-
-              </div>
+              </Link>
             );
           })}
+
         </div>
       )}
     </div>

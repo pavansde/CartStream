@@ -23,8 +23,8 @@ export default function Notifications() {
   try {
     await API.put("/notifications/mark-all-read");
     // Optimistically update UI state
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    setUnreadCount(0);
+    // setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    // setUnreadCount(0);
   } catch (err) {
     console.error("Mark all read failed:", err);
   } finally {

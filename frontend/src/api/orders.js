@@ -19,3 +19,15 @@ export const getAdminOrders = () => API.get("/admin/orders");
 // Admin: Update order status by order ID
 export const updateOrderStatus = (orderId, statusData) =>
   API.put(`/admin/orders/${orderId}`, statusData);
+
+// Customer: Get order invoice
+export const getOrderInvoice = (orderId) => API.get(`/orders/${orderId}/invoice`);
+
+// PhonePe payment initiation - call backend to start PhonePe payment
+export const initiatePhonePePayment = (paymentData) =>
+  API.post("/payment/phonepe/initiate", paymentData);
+
+
+// Optionally, if you want to provide polling/check status endpoint
+export const checkPhonePePaymentStatus = (transactionId) =>
+  API.get(`/payment/phonepe/status/${transactionId}`);
