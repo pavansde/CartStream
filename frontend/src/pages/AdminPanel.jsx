@@ -329,66 +329,6 @@ const OrdersTab = ({ orders, ordersLoading, ordersError, onStatusChange }) => {
   );
 };
 
-// const ItemsTab = ({ items, onDeleteItem, onEditItem }) => {
-//   return (
-//     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-//       <div className="px-6 py-4 border-b border-gray-200">
-//         <h2 className="text-xl font-bold text-gray-900">Inventory Management</h2>
-//         <p className="text-gray-600 text-sm">Manage all items in the platform</p>
-//       </div>
-
-//       {items.length === 0 ? (
-//         <div className="text-center py-12">
-//           <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
-//             <span className="text-2xl">✅</span>
-//           </div>
-//           <p className="text-gray-500">No items found</p>
-//         </div>
-//       ) : (
-//         <table className="w-full table-auto border-collapse">
-//           <thead className="bg-gray-50">
-//             <tr>
-//               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-//               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-//               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-//               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-//               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
-//               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-//             </tr>
-//           </thead>
-//           <tbody className="divide-y divide-gray-200">
-//             {items.map(item => (
-//               <tr key={item.id} className={item.low_stock_alert ? "bg-red-50" : ""}>
-//                 <td className="px-6 py-4 text-sm font-medium text-gray-900">{item.title}</td>
-//                 <td className="px-6 py-4 text-sm text-gray-600">{item.description}</td>
-//                 <td className="px-6 py-4 text-sm text-gray-900">₹{item.price.toFixed(2)}</td>
-//                 <td className={`px-6 py-4 text-sm ${item.low_stock_alert ? "text-red-600 font-semibold" : "text-gray-900"}`}>
-//                   {item.stock}
-//                   {item.low_stock_alert && <span className="ml-2 text-xs bg-red-100 text-red-800 px-1 rounded">Low Stock</span>}
-//                 </td>
-//                 <td className="px-6 py-4 text-sm text-gray-900">{item.owner_username}</td>
-//                 <td className="px-6 py-4 text-center space-x-2">
-//                   <button
-//                     onClick={() => onEditItem(item)}
-//                     className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs"
-//                   >
-//                     Edit
-//                   </button>
-//                   <button
-//                     onClick={() => onDeleteItem(item.id)}
-//                     className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs"
-//                   >
-//                     Delete
-//                   </button>
-//                 </td>
-//               </tr>
-//             ))}
-//           </tbody>
-//         </table>
-//       )}
-//     </div>
-//   );
-// };
 
 const ItemsTab = ({
   items,
@@ -400,6 +340,96 @@ const ItemsTab = ({
   submitEdit,
   cancelEdit,
 }) => {
+  const [variantFormByItemId, setVariantFormByItemId] = useState({});
+  const [imagePreviews, setImagePreviews] = useState({});
+  const [variantsByItemId, setVariantsByItemId] = useState({});
+
+  // Function to get all images for a variant
+  const getVariantImages = (variant) => {
+    const images = [];
+    if (variant.image_url) {
+      images.push(variant.image_url);
+    }
+    if (variant.images && Array.isArray(variant.images)) {
+      variant.images.forEach(imageUrl => {
+        if (imageUrl !== variant.image_url && !images.includes(imageUrl)) {
+          images.push(imageUrl);
+        }
+      });
+    }
+    return images;
+  };
+
+  const handleVariantFormChange = (itemId, field, value) => {
+    setVariantFormByItemId((prev) => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], [field]: value },
+    }));
+  };
+
+  const handleImageUpload = (itemId, files) => {
+    const previews = Array.from(files).map(file => ({
+      file,
+      preview: URL.createObjectURL(file)
+    }));
+
+    setImagePreviews(prev => ({
+      ...prev,
+      [itemId]: [...(prev[itemId] || []), ...previews]
+    }));
+
+    setVariantFormByItemId(prev => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        imageFiles: [...(prev[itemId]?.imageFiles || []), ...files]
+      }
+    }));
+  };
+
+  const removeImagePreview = (itemId, index) => {
+    setImagePreviews(prev => ({
+      ...prev,
+      [itemId]: prev[itemId].filter((_, i) => i !== index)
+    }));
+
+    setVariantFormByItemId(prev => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        imageFiles: prev[itemId]?.imageFiles?.filter((_, i) => i !== index) || []
+      }
+    }));
+  };
+
+  const submitVariantCreate = async (e, itemId) => {
+    e.preventDefault();
+    const vForm = variantFormByItemId[itemId];
+    if (!vForm || !vForm.imageFiles || vForm.imageFiles.length === 0) return;
+
+    try {
+      const formData = new FormData();
+      if (vForm.size) formData.append("size", vForm.size);
+      if (vForm.color) formData.append("color", vForm.color);
+      if (vForm.price !== undefined) formData.append("price", vForm.price);
+      if (vForm.stock !== undefined) formData.append("stock", vForm.stock);
+
+      vForm.imageFiles.forEach((file) => {
+        formData.append("images", file);
+      });
+
+      // TODO: Add API call for admin to create variants
+      console.log("Creating variant for item:", itemId, formData);
+      
+      // Reset form and previews
+      setVariantFormByItemId(prev => ({ ...prev, [itemId]: {} }));
+      setImagePreviews(prev => ({ ...prev, [itemId]: [] }));
+
+    } catch (error) {
+      console.error("Failed to create variant:", error);
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200">
@@ -424,31 +454,6 @@ const ItemsTab = ({
             onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
             className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <input
-            type="number"
-            name="price"
-            value={editForm.price}
-            onChange={(e) => setEditForm({ ...editForm, price: parseFloat(e.target.value) })}
-            step="0.01"
-            min="0"
-            required
-            className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <input
-            type="number"
-            name="stock"
-            value={editForm.stock}
-            onChange={(e) => setEditForm({ ...editForm, stock: parseInt(e.target.value) })}
-            min="0"
-            required
-            className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setEditForm({ ...editForm, imageFile: e.target.files[0] })}
-            className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
           <div className="flex justify-between">
             <button type="button" onClick={cancelEdit} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
               Cancel
@@ -468,54 +473,226 @@ const ItemsTab = ({
           <p className="text-gray-500">No items found</p>
         </div>
       ) : (
-        <table className="w-full table-auto border-collapse">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {items.map((item) => (
-              <tr key={item.id} className={item.low_stock_alert ? "bg-red-50" : ""}>
-                {/* Cell values same as before */}
-                <td className="px-6 py-4">
+        <div className="divide-y divide-gray-200">
+          {items.map((item) => (
+            <div key={item.id} className="p-6 hover:bg-gray-50 transition-colors">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center space-x-4">
                   {item.image_url ? (
                     <img
                       src={`http://localhost:8000${item.image_url}`}
                       alt={item.title}
-                      className="w-20 h-20 object-cover rounded-lg"
+                      className="w-16 h-16 object-cover rounded-lg"
                     />
                   ) : (
-                    <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-xs">
+                    <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-xs">
                       No Image
                     </div>
                   )}
-                </td>
-                <td className="px-6 py-4 text-sm font-medium text-gray-900">{item.title}</td>
-                <td className="px-6 py-4 text-sm text-gray-600">{item.description}</td>
-                <td className="px-6 py-4 text-sm text-gray-900">₹{item.price.toFixed(2)}</td>
-                <td className={`px-6 py-4 text-sm ${item.low_stock_alert ? "text-red-600 font-semibold" : "text-gray-900"}`}>
-                  {item.stock}
-                  {item.low_stock_alert && <span className="ml-2 text-xs bg-red-100 text-red-800 px-1 rounded">Low Stock</span>}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-900">{item.owner_username}</td>
-                <td className="px-6 py-4 text-center space-x-2">
-                  <button onClick={() => onEditItem(item)} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{item.title}</h3>
+                    <p className="text-gray-600 text-sm">{item.description}</p>
+                    <p className="text-gray-500 text-xs">Owner: {item.owner_username}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => onEditItem(item)} 
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium"
+                  >
                     Edit
                   </button>
-                  <button onClick={() => onDeleteItem(item.id)} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs">
+                  <button 
+                    onClick={() => onDeleteItem(item.id)} 
+                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm font-medium"
+                  >
                     Delete
                   </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </div>
+
+              {/* Variants List */}
+              <div className="ml-6 mb-4">
+                <h4 className="text-md font-semibold mb-3 text-gray-800">Product Variants</h4>
+                {variantsByItemId?.[item.id]?.length > 0 ? (
+                  <div className="space-y-4">
+                    {variantsByItemId[item.id].map((variant) => {
+                      const variantImages = getVariantImages(variant);
+                      return (
+                        <div key={variant.id} className="border rounded-lg p-4 bg-gray-50">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {variant.size && `Size: ${variant.size}`}
+                                {variant.size && variant.color && ' • '}
+                                {variant.color && `Color: ${variant.color}`}
+                                {!variant.size && !variant.color && 'Default Variant'}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                Price: ₹{variant.price?.toFixed(2) || '0.00'} • Stock: {variant.stock}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {variantImages.length} image{variantImages.length !== 1 ? 's' : ''}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => console.log("Delete variant:", variant.id)}
+                              className="text-red-600 hover:text-red-800 text-sm font-medium"
+                            >
+                              Delete Variant
+                            </button>
+                          </div>
+
+                          {/* Variant Images */}
+                          {variantImages.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {variantImages.map((imageUrl, imgIndex) => (
+                                <div key={imgIndex} className="relative group">
+                                  <img
+                                    src={`http://localhost:8000${imageUrl}`}
+                                    alt={`Variant image ${imgIndex + 1}`}
+                                    className="w-16 h-16 object-cover rounded border"
+                                  />
+                                  {imgIndex === 0 && imageUrl === variant.image_url && (
+                                    <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs px-1 rounded">
+                                      Primary
+                                    </span>
+                                  )}
+                                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                    <span className="text-white text-xs bg-black bg-opacity-70 px-1 rounded">
+                                      {imgIndex + 1}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 italic text-sm">No variants added yet</p>
+                )}
+              </div>
+
+              {/* Add Variant Form (Admin can add variants to any item) */}
+              <div className="ml-6 border-t border-gray-300 pt-4">
+                <h5 className="text-md font-semibold mb-3 text-gray-800">Add New Variant with Images</h5>
+                <form
+                  onSubmit={(e) => submitVariantCreate(e, item.id)}
+                  className="space-y-4"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Color (optional)"
+                      value={variantFormByItemId?.[item.id]?.color || ""}
+                      onChange={(e) => handleVariantFormChange(item.id, "color", e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Size (optional)"
+                      value={variantFormByItemId?.[item.id]?.size || ""}
+                      onChange={(e) => handleVariantFormChange(item.id, "size", e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Price"
+                      step="0.01"
+                      min="0"
+                      value={variantFormByItemId?.[item.id]?.price ?? ""}
+                      onChange={(e) => handleVariantFormChange(item.id, "price", parseFloat(e.target.value))}
+                      className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Stock"
+                      min="0"
+                      value={variantFormByItemId?.[item.id]?.stock ?? ""}
+                      onChange={(e) => handleVariantFormChange(item.id, "stock", parseInt(e.target.value))}
+                      className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Multiple Image Upload */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Upload Images (Multiple selection supported)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => handleImageUpload(item.id, e.target.files)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+
+                    {/* Image Previews */}
+                    {imagePreviews[item.id]?.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-sm text-gray-600 mb-2">
+                          Selected {imagePreviews[item.id].length} image{imagePreviews[item.id].length !== 1 ? 's' : ''}:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {imagePreviews[item.id].map((preview, index) => (
+                            <div key={index} className="relative">
+                              <img
+                                src={preview.preview}
+                                alt={`Preview ${index + 1}`}
+                                className="w-16 h-16 object-cover rounded border"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeImagePreview(item.id, index)}
+                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
+                              >
+                                ×
+                              </button>
+                              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs text-center py-0.5">
+                                {index + 1}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      type="submit"
+                      disabled={!variantFormByItemId?.[item.id]?.imageFiles?.length}
+                      className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                    >
+                      Create Variant with {variantFormByItemId?.[item.id]?.imageFiles?.length || 0} Image{variantFormByItemId?.[item.id]?.imageFiles?.length !== 1 ? 's' : ''}
+                    </button>
+
+                    {variantFormByItemId?.[item.id]?.imageFiles?.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVariantFormByItemId(prev => ({ ...prev, [item.id]: {} }));
+                          setImagePreviews(prev => ({ ...prev, [item.id]: [] }));
+                        }}
+                        className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                      >
+                        Clear Form
+                      </button>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-gray-500">
+                    💡 All selected images will be uploaded as part of a single variant.
+                    The first image will be set as the primary image.
+                  </p>
+                </form>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

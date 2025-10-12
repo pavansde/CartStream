@@ -1,4 +1,5 @@
 from datetime import datetime
+from pymysql import TIMESTAMP
 from sqlalchemy import Table, Column, Integer, String, Text, Float, ForeignKey, MetaData,Boolean, DateTime, UniqueConstraint, Date
 from sqlalchemy.sql import expression, func
 
@@ -33,6 +34,17 @@ product_variants = Table(
     UniqueConstraint("item_id", "size", "color", name="unique_variant"),
 )
 
+# ===== Variant Images Table =====
+variant_images = Table(
+    "variant_images",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("variant_id", Integer, ForeignKey("product_variants.id", ondelete="CASCADE")),
+    Column("image_url", String(255)),
+    Column("display_order", Integer, default=0),
+    Column("created_at", DateTime, nullable=False, server_default=func.now()),
+)
+
 
 
 # ===== User Profiles Table =====
@@ -57,9 +69,6 @@ items = Table(
     Column("id", Integer, primary_key=True),
     Column("title", String(100), nullable=False),
     Column("description", Text),
-    Column("price", Float, nullable=False),
-    Column("stock", Integer, default=0),
-    Column("image_url", String(255), nullable=True),
     # Foreign key to the shop owner's user ID
     Column("owner_id", Integer, ForeignKey("users.id"), nullable=False),
 )
@@ -85,6 +94,7 @@ order_items = Table(
     Column("id", Integer, primary_key=True),
     Column("order_id", Integer, ForeignKey("orders.id"), nullable=False),
     Column("item_id", Integer, ForeignKey("items.id"), nullable=False),
+    Column("variant_id", Integer, ForeignKey("product_variants.id"), nullable=True),  # Add this line
     Column("quantity", Integer, nullable=False, default=1),
     Column("line_total_price", Float, nullable=False),
 )
@@ -160,10 +170,11 @@ carts = Table(
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
     Column("item_id", Integer, ForeignKey("items.id", ondelete="CASCADE"), nullable=False),
+    Column("variant_id", Integer, ForeignKey("product_variants.id", ondelete="CASCADE"), nullable=True),
     Column("quantity", Integer, nullable=False, default=1),
     Column("created_at", DateTime, default=datetime.utcnow),
     Column("updated_at", DateTime, default=datetime.utcnow, onupdate=datetime.utcnow),
-    UniqueConstraint("user_id", "item_id", name="unique_user_item")
+    UniqueConstraint("user_id", "item_id", "variant_id", name="unique_user_item_variant")
 )
 
 # ===== Coupons Table =====

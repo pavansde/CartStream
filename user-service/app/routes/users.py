@@ -40,26 +40,6 @@ class ChangePasswordRequest(BaseModel):
 # =====================
 # Create User
 # =====================
-# @router.post("/users/", response_model=UserRead)
-# async def create_user(user: UserCreate):
-#     query = users.select().where(users.c.email == user.email)
-#     existing_user = await database.fetch_one(query)
-#     if existing_user:
-#         raise HTTPException(status_code=400, detail="Email already registered")
-
-#     hashed_password = pwd_context.hash(user.password)
-#     # Default role is "customer" if not provided or invalid
-#     role = user.role.lower() if user.role and user.role.lower() in ["admin", "shop_owner", "customer"] else "customer"
-
-#     query = users.insert().values(
-#         username=user.username,
-#         email=user.email,
-#         hashed_password=hashed_password,
-#         role=role
-#     )
-#     user_id = await database.execute(query)
-#     return UserRead(id=user_id, username=user.username, email=user.email)
-
 @router.post("/users/", response_model=UserRead)
 async def create_user(user: UserCreate, background_tasks: BackgroundTasks):
     query = users.select().where(users.c.email == user.email)
@@ -98,23 +78,6 @@ async def create_user(user: UserCreate, background_tasks: BackgroundTasks):
 # =====================
 # Verify Email
 # =====================
-# @router.get("/verify-email")
-# async def verify_email(token: str):
-#     query = users.select().where(users.c.verification_token == token)
-#     user = await database.fetch_one(query)
-#     if not user:
-#         raise HTTPException(status_code=400, detail="Invalid or expired token")
-#     if user["is_verified"]:
-#         return {"message": "Email already verified"}
-
-#     # Optionally check expiry
-#     update_query = users.update().where(users.c.id == user["id"]).values(is_verified=True, verification_token=None)
-#     await database.execute(update_query)
-
-#     # Send welcome email after verification
-#     send_welcome_email(to_email=user["email"], username=user["username"])
-#     return {"message": "Email successfully verified"}
-
 @router.get("/verify-email")
 async def verify_email(token: str):
     user = await database.fetch_one(users.select().where(users.c.verification_token == token))
@@ -135,85 +98,45 @@ async def verify_email(token: str):
 # # =====================
 # # Login
 # # =====================
-# @router.post("/login/")
-# async def login(user: UserLogin):
-#     query = users.select().where(users.c.email == user.email)
-#     db_user = await database.fetch_one(query)
-
-#     # Verify password
-#     if not db_user or not pwd_context.verify(user.password, db_user["hashed_password"]):
-#         raise HTTPException(status_code=400, detail="Invalid email or password")
-
-#     # Fetch profile picture from user_profiles table
-#     profile_query = user_profiles.select().where(user_profiles.c.user_id == db_user["id"])
-#     profile = await database.fetch_one(profile_query)
-#     profile_picture = profile["profile_picture"] if profile else None
-
-#     # Create access token
-#     access_token_expires = timedelta(minutes=60)
-#     access_token = create_access_token(
-#         data={
-#             "sub": db_user["email"],
-#             "user_id": db_user["id"],
-#             "role": db_user["role"]  # role might be 'admin', 'shop_owner', 'customer'
-#         },
-#         expires_delta=access_token_expires
-#     )
-
-#     # Create refresh token
-#     refresh_token = create_refresh_token(
-#         data={
-#             "sub": db_user["email"],
-#             "user_id": db_user["id"],
-#             "role": db_user["role"]
-#         }
-#     )
-
-#     # Build user data for frontend (including profile_picture)
-#     user_data = {
-#         "id": db_user["id"],
-#         "username": db_user["username"],
-#         "email": db_user["email"],
-#         "role": db_user["role"],
-#         "profile_picture": profile_picture,
-#     }
-
-#     return {
-#         "access_token": access_token,
-#         "refresh_token": refresh_token,
-#         "user": user_data
-#     }
-
 @router.post("/login/")
-async def login(user: UserLogin):
-    query = users.select().where(users.c.email == user.email)
+async def login(user: UserLogin):  # UserLogin now accepts 'identifier' (email or number) and 'password'
+    # Try finding by email first
+    query = users.select().where(users.c.email == user.identifier)
     db_user = await database.fetch_one(query)
+
+    # If not found, try finding by mobile number via user_profiles
+    if not db_user:
+        profile_query = user_profiles.select().where(user_profiles.c.contact_number == user.identifier)
+        profile = await database.fetch_one(profile_query)
+        if profile:
+            user_id = profile["user_id"]
+            query = users.select().where(users.c.id == user_id)
+            db_user = await database.fetch_one(query)
 
     # Check if user exists and is verified
     if not db_user or db_user["is_verified"] != 1:
-        raise HTTPException(status_code=400, detail="Invalid email or user not verified")
+        raise HTTPException(status_code=400, detail="Invalid email/number or user not verified")
 
     # Verify password
     if not pwd_context.verify(user.password, db_user["hashed_password"]):
-        raise HTTPException(status_code=400, detail="Invalid email or password")
-
-    # Fetch profile picture from user_profiles table
+        raise HTTPException(status_code=400, detail="Invalid credentials")
+    
+    # Fetch profile picture info
     profile_query = user_profiles.select().where(user_profiles.c.user_id == db_user["id"])
     profile = await database.fetch_one(profile_query)
     profile_picture = profile["profile_picture"] if profile else None
 
-    # Create access token
+    # Generate tokens and response (same as before)
     access_token_expires = timedelta(minutes=60)
     access_token = create_access_token(
         data={
             "sub": db_user["email"],
             "user_id": db_user["id"],
-            "role": db_user["role"]  # role might be 'admin', 'shop_owner', 'customer'
+            "role": db_user["role"]
         },
         expires_delta=access_token_expires
     )
 
-    # Create refresh token
     refresh_token = create_refresh_token(
         data={
             "sub": db_user["email"],
@@ -222,7 +145,6 @@ async def login(user: UserLogin):
         }
     )
 
-    # Build user data for frontend (including profile_picture)
     user_data = {
         "id": db_user["id"],
         "username": db_user["username"],
@@ -236,6 +158,7 @@ async def login(user: UserLogin):
         "refresh_token": refresh_token,
         "user": user_data
     }
+
 
 
 # =====================

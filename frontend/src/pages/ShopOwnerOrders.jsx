@@ -12,25 +12,6 @@ export default function ShopOwnerOrders({ orders: propOrders }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // // Memoized data fetching
-  // const fetchOrders = useCallback(async () => {
-  //   setLoading(true);
-  //   setError("");
-  //   try {
-  //     const res = await getShopOwnerOrders();
-  //     setOrders(res.data);
-  //   } catch (err) {
-  //     setError("Failed to load orders. Please try again.");
-  //     console.error("Order fetch error:", err);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // }, []);
-
-  // useEffect(() => {
-  //   fetchOrders();
-  // }, [fetchOrders]);
-
   // Update orders when propOrders changes
   useEffect(() => {
     if (propOrders) {
@@ -77,27 +58,6 @@ export default function ShopOwnerOrders({ orders: propOrders }) {
       return () => clearTimeout(timer);
     }
   }, [successMessage]);
-
-  // const handleStatusChange = async (orderId, newStatus) => {
-  //   setUpdatingOrderId(orderId);
-  //   setError("");
-  //   setSuccessMessage("");
-
-  //   try {
-  //     await updateShopOwnerOrderStatus(orderId, { status: newStatus });
-  //     setOrders((prev) =>
-  //       prev.map((order) =>
-  //         order.id === orderId ? { ...order, status: newStatus } : order
-  //       )
-  //     );
-  //     setSuccessMessage(`Order #${orderId} status updated to ${newStatus}`);
-  //   } catch (err) {
-  //     setError("Failed to update order status. Please try again.");
-  //     console.error("Status update error:", err);
-  //   } finally {
-  //     setUpdatingOrderId(null);
-  //   }
-  // };
 
   const handleStatusChange = async (orderId, newStatus) => {
     setUpdatingOrderId(orderId);
@@ -172,6 +132,25 @@ export default function ShopOwnerOrders({ orders: propOrders }) {
       minimumFractionDigits: 2
     }).format(amount);
   };
+
+  const getImageUrl = (imageUrl) => {
+  if (!imageUrl) {
+    return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239CA3AF'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='1' d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' /%3E%3C/svg%3E";
+  }
+
+  // If it's already a full URL, return as is
+  if (imageUrl.startsWith('http')) {
+    return imageUrl;
+  }
+
+  // For static files, point to the backend server
+  const backendBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+  
+  // Remove leading slash if present to avoid double slashes
+  const cleanPath = imageUrl.startsWith('/') ? imageUrl.slice(1) : imageUrl;
+  
+  return `${backendBaseUrl}/${cleanPath}`;
+};
 
   // Filter orders based on search and status
   const filteredOrders = orders.filter(order => {
@@ -473,12 +452,17 @@ export default function ShopOwnerOrders({ orders: propOrders }) {
                           {order.items?.slice(0, 3).map((item, index) => (
                             <div key={item.id || index} className="flex items-center space-x-3 text-sm">
                               <img
-                                src={item.image_url?.startsWith('http') ? item.image_url : `/${item.image_url}`}
+                                src={getImageUrl(item.image_url)}
                                 alt={item.item_title || "Product image"}
                                 className="w-10 h-10 object-cover rounded-lg border border-gray-200"
+                                onLoad={(e) => {
+                                  console.log('Image loaded successfully:', item.item_title, e.target.src);
+                                }}
                                 onError={(e) => {
+                                  console.log('Image failed to load:', item.item_title, e.target.src);
                                   e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239CA3AF'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='1' d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' /%3E%3C/svg%3E";
                                 }}
+                                style={{ backgroundColor: 'red' }} // Temporary to make image visible
                               />
                               <div className="flex-1 min-w-0">
                                 <p className="text-gray-900 font-medium truncate">

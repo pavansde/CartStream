@@ -64,20 +64,35 @@ export default function PublicItemsPage() {
       );
     }
 
-    if (stockFilter === "in") {
-      data = data.filter((item) => item.stock > 0 && !item.low_stock_alert);
-    } else if (stockFilter === "low") {
-      data = data.filter((item) => item.low_stock_alert && item.stock > 0);
-    } else if (stockFilter === "out") {
-      data = data.filter((item) => item.stock === 0);
-    }
+    data = data.filter((item) => {
+      const totalStock = item.variants?.reduce((sum, v) => sum + (v.stock || 0), 0) || 0;
+      switch (stockFilter) {
+        case "in":
+          return totalStock > 0;
+        case "low":
+          return totalStock > 0 && totalStock <= 5;
+        case "out":
+          return totalStock === 0;
+        default:
+          return true;
+      }
+    });
 
     data.sort((a, b) => {
+      const aPrice =
+        a.variants && a.variants.length > 0
+          ? Math.min(...a.variants.map((v) => v.price ?? Infinity))
+          : Infinity;
+      const bPrice =
+        b.variants && b.variants.length > 0
+          ? Math.min(...b.variants.map((v) => v.price ?? Infinity))
+          : Infinity;
+
       switch (sortBy) {
         case "price-asc":
-          return a.price - b.price;
+          return aPrice - bPrice;
         case "price-desc":
-          return b.price - a.price;
+          return bPrice - aPrice;
         case "name-desc":
           return b.title.localeCompare(a.title);
         case "name-asc":
@@ -112,10 +127,27 @@ export default function PublicItemsPage() {
     }
   };
 
-  // Cart handler
-  const handleAddToCart = async (itemId, itemTitle) => {
+  // Cart handler - FIXED VERSION
+  const handleAddToCart = async (itemId, itemTitle, itemVariants) => {
     try {
-      await addItem(itemId);
+      const variantId = itemVariants && itemVariants.length > 0
+        ? itemVariants[0].id
+        : null;
+
+      const selectedVariant = itemVariants && itemVariants.length > 0
+        ? itemVariants[0]
+        : null;
+
+      const payload = {
+        item_id: itemId,
+        variant_id: variantId,
+        quantity: 1,
+        variant: selectedVariant // Include variant data
+      };
+
+      console.log("🛒 Add to Cart Payload:", payload);
+
+      await addItem(payload);
       showToast(`"${itemTitle}" added to cart!`, "success");
     } catch (error) {
       const msg = error?.response?.data?.detail || error?.message || "Failed to add to cart";
@@ -268,7 +300,19 @@ export default function PublicItemsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
           {filteredItems.map((item) => {
-            const imageUrl = `http://10.10.10.77:8000${item.image_url}`;
+            const totalStock = item.variants?.reduce((sum, v) => sum + (v.stock || 0), 0) || 0;
+            const itemPrice =
+              item.variants && item.variants.length > 0
+                ? Math.min(...item.variants.map((v) => v.price ?? Infinity))
+                : null;
+
+            // Image fallback from first variant's first image or placeholder
+            const imageUrl = item.image_url
+              ? `http://10.118.241.149:8000${item.image_url}`
+              : item.variants && item.variants.length > 0 && item.variants[0].images.length > 0
+                ? `http://10.118.241.149:8000${item.variants[0].images[0]}`
+                : "placeholder-image-url"; // replace with your placeholder if needed
+
             const showWishlist = user && user.role === "customer";
             const showCart = true;
 
@@ -289,16 +333,17 @@ export default function PublicItemsPage() {
                         "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzljYTNiMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
                     }}
                   />
-                  {/* rest product content */}
                   <h2 className="font-semibold text-lg mb-2 text-gray-900 line-clamp-2">{item.title}</h2>
                   <p className="text-sm text-gray-600 flex-grow line-clamp-3 mb-3">{item.description || "No description available"}</p>
-                  <p className="text-green-700 font-bold text-lg mb-3">₹{item.price.toFixed(2)}</p>
+                  <p className="text-green-700 font-bold text-lg mb-3">
+                    {itemPrice !== null ? `₹${itemPrice}` : "Price not available"}
+                  </p>
                   <div className="mb-4">
-                    {item.stock === 0 ? (
+                    {totalStock === 0 ? (
                       <span className="px-3 py-1 text-xs bg-red-100 text-red-800 rounded-full font-medium border border-red-200">Out of Stock</span>
-                    ) : item.stock <= 5 ? (
+                    ) : totalStock <= 5 ? (
                       <span className="px-3 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full font-medium border border-yellow-200">
-                        {item.stock === 1 ? "Only 1 left!" : `Only ${item.stock} left!`}
+                        {totalStock === 1 ? "Only 1 left!" : `Only ${totalStock} left!`}
                       </span>
                     ) : null}
                   </div>
@@ -308,55 +353,39 @@ export default function PublicItemsPage() {
                   {showWishlist && (
                     <button
                       onClick={(e) => {
-                        e.preventDefault(); // prevent link navigation on button click
+                        e.preventDefault();
                         handleAddToWishlist(item.id, item.title);
                       }}
                       disabled={wishlistLoadingIds.has(item.id)}
-                      className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center ${wishlistLoadingIds.has(item.id) ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-yellow-500 hover:bg-yellow-600 text-white"
+                      className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center ${wishlistLoadingIds.has(item.id)
+                          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                          : "bg-yellow-500 hover:bg-yellow-600 text-white"
                         }`}
                     >
-                      {wishlistLoadingIds.has(item.id) ? (
-                        <>
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Adding...
-                        </>
-                      ) : (
-                        "Add to Wishlist"
-                      )}
+                      {wishlistLoadingIds.has(item.id) ? "Adding..." : "Add to Wishlist"}
                     </button>
                   )}
 
                   {showCart && (
                     <button
                       onClick={(e) => {
-                        e.preventDefault(); // prevent link navigation on button click
-                        handleAddToCart(item.id, item.title);
+                        e.preventDefault();
+                        // Pass item variants to the function
+                        handleAddToCart(item.id, item.title, item.variants);
                       }}
-                      disabled={cartLoadingIds.has(item.id) || item.stock === 0}
-                      className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center ${cartLoadingIds.has(item.id) || item.stock === 0 ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={cartLoadingIds.has(item.id) || totalStock === 0}
+                      className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center ${cartLoadingIds.has(item.id) || totalStock === 0
+                          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                          : "bg-blue-600 hover:bg-blue-700 text-white"
                         }`}
                     >
-                      {cartLoadingIds.has(item.id) ? (
-                        <>
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Adding...
-                        </>
-                      ) : (
-                        `Add to Cart${cart[item.id] ? ` (${cart[item.id]})` : ""}`
-                      )}
+                      {cartLoadingIds.has(item.id) ? "Adding..." : `Add to Cart${cart[item.id] ? ` (${cart[item.id]})` : ""}`}
                     </button>
                   )}
                 </div>
               </Link>
             );
           })}
-
         </div>
       )}
     </div>

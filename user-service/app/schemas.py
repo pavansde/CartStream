@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, constr
-from typing import Optional, List, Annotated
+from typing import Optional, List, Annotated, Dict
 from datetime import datetime, date
 
 
@@ -30,7 +30,7 @@ class UserRead(BaseModel):
 
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    identifier: str
     password: str
 
 
@@ -115,6 +115,28 @@ class ProductVariantUpdate(ProductVariantBase):
 class ProductVariantRead(ProductVariantBase):
     id: int
     item_id: int
+    images: List[str] = []  # Add this field for multiple images
+
+    class Config:
+        from_attributes = True
+
+
+# ========================= 
+# New Variant Image Schemas
+# =========================
+class VariantImageBase(BaseModel):
+    image_url: str
+    display_order: int = 0
+
+
+class VariantImageCreate(VariantImageBase):
+    variant_id: int
+
+
+class VariantImageRead(VariantImageBase):
+    id: int
+    variant_id: int
+    created_at: datetime
 
     class Config:
         from_attributes = True
@@ -125,16 +147,12 @@ class ProductVariantRead(ProductVariantBase):
 class ItemBase(BaseModel):
     title: str
     description: Optional[str] = None
-    price: float = Field(..., ge=0)      # price must be >= 0
-    stock: int = Field(0, ge=0)          # stock must be >= 0
-    image_url: Optional[str] = None      # optional image URL
+
 
 class ItemCreate(ItemBase):
     title: str
     description: Optional[str]
-    price: float
-    stock: int
-    image_url: Optional[str] = None
+ 
 
 class ItemRead(ItemBase):
     id: int
@@ -209,26 +227,33 @@ class OrderBase(BaseModel):
 class OrderItemBase(BaseModel):
     item_id: int
     quantity: int
+    variant_id: Optional[int] = None  # Add variant support
 
 
 class OrderItemRead(BaseModel):
     id: int
     item_id: int
     quantity: int
+    variant_id: Optional[int] = None
     item_title: Optional[str] = None
     image_url: Optional[str] = None
     line_total_price: float
-    shop_owner_name: Optional[str] = None  # Add shop owner per item
-    item_owner_id: Optional[int] = None    # Add item owner ID
+    shop_owner_name: Optional[str] = None
+    item_owner_id: Optional[int] = None
+    # Enhanced variant information
+    variant_color: Optional[str] = None
+    variant_size: Optional[str] = None
+    variant_price: Optional[float] = None
+    variant_image_url: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 class OrderCreate(BaseModel):
-    # customer_id: int
     items: List[OrderItemBase]  # Multiple items per order
     coupon_code: Optional[str] = None
-    shipping_address: AddressCreate
+    shipping_address: Optional[AddressCreate] = None  # Make optional since we have shipping_address_id
+    shipping_address_id: Optional[int] = None  # Add this field
     shipping_charge: Optional[float] = 0.0
     transaction_id: Optional[str] = None
 
@@ -275,10 +300,24 @@ class WishlistBase(BaseModel):
 class WishlistCreate(WishlistBase):
     pass
 
+class WishlistItemRead(BaseModel):
+    id: int
+    title: str
+    description: Optional[str] = None
+    owner_id: int
+    image_url: Optional[str] = None
+    price: Optional[float] = None
+    variant_color: Optional[str] = None
+    variant_size: Optional[str] = None
+    low_stock_alert: bool = False
+
+    class Config:
+        from_attributes = True
+
 class WishlistRead(BaseModel):
     id: int
     customer_id: int
-    item: ItemRead                      # Nested item info for clarity
+    item: WishlistItemRead
 
     class Config:
         from_attributes = True
@@ -336,6 +375,7 @@ class Message(BaseModel):
 # =========================
 class CartItemAdd(BaseModel):
     item_id: int
+    variant_id: Optional[int] = None  # Add this field
     quantity: int = Field(..., ge=1)     # quantity must be >= 1
 
 class CartItemUpdate(BaseModel):
@@ -344,6 +384,7 @@ class CartItemUpdate(BaseModel):
 
 class CartItem(BaseModel):
     id: int                             # cart item ID for updates/deletes
+    variant_id: Optional[int] = None  
     item: ItemRead                     # full item data for display
     quantity: int = Field(..., ge=1)
 
