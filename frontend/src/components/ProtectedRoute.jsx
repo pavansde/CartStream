@@ -1,36 +1,3 @@
-// import React, { useContext } from "react";
-// import { Navigate, Outlet, useLocation } from "react-router-dom";
-// import { AuthContext } from "../context/AuthContext";
-
-// export default function ProtectedRoute({ allowedRoles }) {
-//   const { authToken, user } = useContext(AuthContext);
-//   const location = useLocation();
-
-//   if (authToken && !user) {
-//     return (
-//       <div className="p-6 text-center font-semibold text-gray-600">
-//         Loading user details...
-//       </div>
-//     );
-//   }
-
-//   if (!authToken || !user) {
-//     return <Navigate to="/login" state={{ from: location }} replace />;
-//   }
-
-//   const roleMatch =
-//     !allowedRoles ||
-//     allowedRoles.some(
-//       (role) => role.toLowerCase() === user.role?.toLowerCase()
-//     );
-
-//   if (!roleMatch) {
-//     return <Navigate to="/unauthorized" replace />;
-//   }
-
-//   return <Outlet />;
-// }
-
 import React, { useContext, useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";

@@ -308,9 +308,9 @@ export default function PublicItemsPage() {
 
             // Image fallback from first variant's first image or placeholder
             const imageUrl = item.image_url
-              ? `http://10.118.241.149:8000${item.image_url}`
+              ? `http://10.10.10.56:8000${item.image_url}`
               : item.variants && item.variants.length > 0 && item.variants[0].images.length > 0
-                ? `http://10.118.241.149:8000${item.variants[0].images[0]}`
+                ? `http://10.10.10.56:8000${item.variants[0].images[0]}`
                 : "placeholder-image-url"; // replace with your placeholder if needed
 
             const showWishlist = user && user.role === "customer";
@@ -358,8 +358,8 @@ export default function PublicItemsPage() {
                       }}
                       disabled={wishlistLoadingIds.has(item.id)}
                       className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center ${wishlistLoadingIds.has(item.id)
-                          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                          : "bg-yellow-500 hover:bg-yellow-600 text-white"
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : "bg-yellow-500 hover:bg-yellow-600 text-white"
                         }`}
                     >
                       {wishlistLoadingIds.has(item.id) ? "Adding..." : "Add to Wishlist"}
@@ -375,8 +375,8 @@ export default function PublicItemsPage() {
                       }}
                       disabled={cartLoadingIds.has(item.id) || totalStock === 0}
                       className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center ${cartLoadingIds.has(item.id) || totalStock === 0
-                          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                          : "bg-blue-600 hover:bg-blue-700 text-white"
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700 text-white"
                         }`}
                     >
                       {cartLoadingIds.has(item.id) ? "Adding..." : `Add to Cart${cart[item.id] ? ` (${cart[item.id]})` : ""}`}
@@ -390,4 +390,4 @@ export default function PublicItemsPage() {
       )}
     </div>
   );
-}
+} a

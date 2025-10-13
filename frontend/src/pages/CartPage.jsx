@@ -24,10 +24,10 @@ export default function CartPage() {
   // Load cart items from backend via CartContext - ONLY ON MOUNT
   useEffect(() => {
     let mounted = true;
-    
+
     async function loadCart() {
       if (!mounted) return;
-      
+
       setLoading(true);
       try {
         console.log("📥 CartPage: Loading cart...");
@@ -44,9 +44,9 @@ export default function CartPage() {
         }
       }
     }
-    
+
     loadCart();
-    
+
     return () => {
       mounted = false;
     };
@@ -91,7 +91,7 @@ export default function CartPage() {
     }
     return 0;
   };
-  
+
   const totalPrice = cartItems.reduce((sum, item) => {
     const price = getDisplayPrice(item);
     return sum + (price * (item.quantity || 0));
@@ -108,21 +108,21 @@ export default function CartPage() {
   // Helper functions
   const getDisplayImage = (item) => {
     if (item.variant?.image_url) {
-      return `http://10.118.241.149:8000${item.variant.image_url}`;
+      return `http://10.10.10.56:8000${item.variant.image_url}`;
     }
     if (item.item?.image_url) {
-      return `http://10.118.241.149:8000${item.item.image_url}`;
+      return `http://10.10.10.56:8000${item.item.image_url}`;
     }
     return "";
   };
 
   const getDisplayTitle = (item) => {
     let title = "Unknown Item";
-    
+
     if (item.item?.title) {
       title = item.item.title;
     }
-    
+
     if (item.variant) {
       const specs = [];
       if (item.variant.color) specs.push(item.variant.color);
@@ -135,7 +135,7 @@ export default function CartPage() {
     return title;
   };
 
-  
+
 
   const getDisplayStock = (item) => {
     if (item.variant?.stock !== null && item.variant?.stock !== undefined) {

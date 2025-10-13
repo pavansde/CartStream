@@ -694,35 +694,35 @@ export default function ShopOwnerDashboard() {
   };
 
   // In ShopOwnerDashboard - make sure this function exists
-const handleUpdateVariant = async (variantId, variantData) => {
-  setVariantLoading(prev => new Set(prev).add(`update-${variantId}`));
-  try {
-    console.log("Updating variant:", variantId, variantData);
-    const response = await updateVariant(variantId, variantData);
-    const updatedVariant = response.data;
+  const handleUpdateVariant = async (variantId, variantData) => {
+    setVariantLoading(prev => new Set(prev).add(`update-${variantId}`));
+    try {
+      console.log("Updating variant:", variantId, variantData);
+      const response = await updateVariant(variantId, variantData);
+      const updatedVariant = response.data;
 
-    // Update items state with the updated variant
-    setItems(prevItems => 
-      prevItems.map(item => ({
-        ...item,
-        variants: item.variants?.map(variant => 
-          variant.id === variantId ? { ...variant, ...updatedVariant } : variant
-        ) || []
-      }))
-    );
+      // Update items state with the updated variant
+      setItems(prevItems =>
+        prevItems.map(item => ({
+          ...item,
+          variants: item.variants?.map(variant =>
+            variant.id === variantId ? { ...variant, ...updatedVariant } : variant
+          ) || []
+        }))
+      );
 
-    setErrMsg("");
-  } catch (err) {
-    console.error("Update variant failed:", err);
-    setErrMsg("Failed to update variant.");
-  } finally {
-    setVariantLoading(prev => {
-      const copy = new Set(prev);
-      copy.delete(`update-${variantId}`);
-      return copy;
-    });
-  }
-};
+      setErrMsg("");
+    } catch (err) {
+      console.error("Update variant failed:", err);
+      setErrMsg("Failed to update variant.");
+    } finally {
+      setVariantLoading(prev => {
+        const copy = new Set(prev);
+        copy.delete(`update-${variantId}`);
+        return copy;
+      });
+    }
+  };
 
   const handleDeleteVariant = async (variantId) => {
     if (!window.confirm("Delete this variant?")) return;

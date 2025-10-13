@@ -72,149 +72,149 @@ function AppInner() {
     <>
       <Navbar />
       <div className="pt-16">
-      <Routes>
-        {/* Public product browsing - with CustomerLayout for customers */}
-        <Route 
-          path="/" 
-          element={
-            <CustomerLayout title="All Products">
-              <PublicItemsPage />
-            </CustomerLayout>
-          } 
-        />
-        <Route path="/items/:id" element={<ProductDetail />} />
-
-        {/* Public auth routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-
-        {/* Admin-only */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute allowedRoles={["admin"]}>
-              <AdminPanel />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Profile with CustomerLayout for customers */}
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute allowedRoles={["admin", "shopowner", "customer"]}>
-              <CustomerLayout title="My Profile">
-                <UserProfile />
+        <Routes>
+          {/* Public product browsing - with CustomerLayout for customers */}
+          <Route
+            path="/"
+            element={
+              <CustomerLayout title="All Products">
+                <PublicItemsPage />
               </CustomerLayout>
-            </ProtectedRoute>
-          }
-        />
+            }
+          />
+          <Route path="/items/:id" element={<ProductDetail />} />
 
-        {/* Shop Owner + Admin */}
-        <Route
-          path="/shop-owner"
-          element={
-            <ProtectedRoute allowedRoles={["shopowner", "admin"]}>
-              <ShopOwnerDashboard />
-            </ProtectedRoute>
-          }
-        />
+          {/* Public auth routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Customer only - Checkout (usually doesn't need sidebar) */}
-        <Route
-          path="/checkout"
-          element={
-            <ProtectedRoute allowedRoles={["customer"]}>
-              <CustomerCheckout />
-            </ProtectedRoute>
-          }
-        />
+          {/* Admin-only */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <AdminPanel />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Customer Cart - with CustomerLayout */}
-        <Route 
-          path="/cart" 
-          element={
-            <CustomerLayout title="My Cart">
-              <CartPage />
-            </CustomerLayout>
-          } 
-        />
+          {/* Profile with CustomerLayout for customers */}
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "shopowner", "customer"]}>
+                <CustomerLayout title="My Profile">
+                  <UserProfile />
+                </CustomerLayout>
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Notifications accessible to all logged-in roles - with CustomerLayout for customers */}
-        <Route
-          path="/notifications"
-          element={
-            <ProtectedRoute allowedRoles={["admin", "shopowner", "customer"]}>
-              <CustomerLayout title="Notifications">
-                <Notifications />
+          {/* Shop Owner + Admin */}
+          <Route
+            path="/shop-owner"
+            element={
+              <ProtectedRoute allowedRoles={["shopowner", "admin"]}>
+                <ShopOwnerDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Customer only - Checkout (usually doesn't need sidebar) */}
+          <Route
+            path="/checkout"
+            element={
+              <ProtectedRoute allowedRoles={["customer"]}>
+                <CustomerCheckout />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Customer Cart - with CustomerLayout */}
+          <Route
+            path="/cart"
+            element={
+              <CustomerLayout title="My Cart">
+                <CartPage />
               </CustomerLayout>
-            </ProtectedRoute>
-          }
-        />
+            }
+          />
 
-        {/* Wishlist accessible to all logged-in roles - with CustomerLayout for customers */}
-        <Route
-          path="/wishlist"
-          element={
-            <ProtectedRoute allowedRoles={["admin", "shopowner", "customer"]}>
-              <CustomerLayout title="My Wishlist">
-                <Wishlist />
+          {/* Notifications accessible to all logged-in roles - with CustomerLayout for customers */}
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "shopowner", "customer"]}>
+                <CustomerLayout title="Notifications">
+                  <Notifications />
+                </CustomerLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Wishlist accessible to all logged-in roles - with CustomerLayout for customers */}
+          <Route
+            path="/wishlist"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "shopowner", "customer"]}>
+                <CustomerLayout title="My Wishlist">
+                  <Wishlist />
+                </CustomerLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* My Orders (Customer) - with CustomerLayout */}
+          <Route
+            path="/my-orders"
+            element={
+              <ProtectedRoute allowedRoles={["customer"]}>
+                <CustomerLayout title="My Orders">
+                  <MyOrders />
+                </CustomerLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Shop Owner Orders */}
+          <Route
+            path="/shop-owner/orders"
+            element={
+              <ProtectedRoute allowedRoles={["shopowner", "admin"]}>
+                <ShopOwnerOrders />
+              </ProtectedRoute>
+            }
+          />
+
+
+          {/* Products page - with CustomerLayout for customers */}
+          <Route
+            path="/products"
+            element={
+              <CustomerLayout title="All Products">
+                <PublicItemsPage />
               </CustomerLayout>
-            </ProtectedRoute>
-          }
-        />
+            }
+          />
 
-        {/* My Orders (Customer) - with CustomerLayout */}
-        <Route
-          path="/my-orders"
-          element={
-            <ProtectedRoute allowedRoles={["customer"]}>
-              <CustomerLayout title="My Orders">
-                <MyOrders />
-              </CustomerLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Shop Owner Orders */}
-        <Route
-          path="/shop-owner/orders"
-          element={
-            <ProtectedRoute allowedRoles={["shopowner", "admin"]}>
-              <ShopOwnerOrders />
-            </ProtectedRoute>
-          }
-        />
+          <Route path="/verify-email" element={<VerifyEmail />} />
 
 
-        {/* Products page - with CustomerLayout for customers */}
-        <Route 
-          path="/products" 
-          element={
-            <CustomerLayout title="All Products">
-              <PublicItemsPage />
-            </CustomerLayout>
-          } 
-        />
+          {/* Unauthorized page */}
+          <Route path="/unauthorized" element={<Unauthorized />} />
 
-        <Route path="/verify-email" element={<VerifyEmail />} />
-
-
-        {/* Unauthorized page */}
-        <Route path="/unauthorized" element={<Unauthorized />} />
-
-        {/* Catch-all 404 */}
-        <Route
-          path="*"
-          element={
-            <div className="p-6 text-center font-semibold text-gray-600">
-              404 — Page Not Found
-            </div>
-          }
-        />
-      </Routes>
+          {/* Catch-all 404 */}
+          <Route
+            path="*"
+            element={
+              <div className="p-6 text-center font-semibold text-gray-600">
+                404 — Page Not Found
+              </div>
+            }
+          />
+        </Routes>
       </div>
     </>
   );

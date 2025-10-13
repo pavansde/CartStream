@@ -1,157 +1,157 @@
 import React, { useState, useEffect } from "react";
 
 // Reusable Coupon Form Component
-    const CouponForm = ({ formData, onFormChange, onSubmit, onCancel, mode = "create" }) => (
-        <div className="bg-white shadow-lg rounded-xl border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">
-                    {mode === "create" ? "Create New Coupon" : "Edit Coupon"}
-                </h3>
-            </div>
-            <form onSubmit={onSubmit} className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Coupon Code *
-                        </label>
-                        <input
-                            type="text"
-                            value={formData.code}
-                            onChange={(e) => onFormChange('code', e.target.value.toUpperCase())}
-                            required
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                            placeholder="SUMMER25"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Discount Type *
-                        </label>
-                        <select
-                            value={formData.discount_type}
-                            onChange={(e) => onFormChange('discount_type', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        >
-                            <option value="percentage">Percentage</option>
-                            <option value="fixed">Fixed Amount</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Discount Value *
-                        </label>
-                        <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.discount_value}
-                            onChange={(e) => onFormChange('discount_value', e.target.value)}
-                            required
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                            placeholder={formData.discount_type === "percentage" ? "25" : "100"}
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Minimum Order Amount
-                        </label>
-                        <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.min_order_amount}
-                            onChange={(e) => onFormChange('min_order_amount', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                            placeholder="0"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Maximum Uses
-                        </label>
-                        <input
-                            type="number"
-                            min="0"
-                            value={formData.max_uses}
-                            onChange={(e) => onFormChange('max_uses', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                            placeholder="Unlimited"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Start Date
-                        </label>
-                        <input
-                            type="date"
-                            value={formData.start_at ? formData.start_at.split('T')[0] : ''}
-                            onChange={(e) => onFormChange('start_at', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            End Date
-                        </label>
-                        <input
-                            type="date"
-                            value={formData.end_at ? formData.end_at.split('T')[0] : ''}
-                            onChange={(e) => onFormChange('end_at', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        />
-                    </div>
-
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Description
-                        </label>
-                        <input
-                            type="text"
-                            value={formData.description}
-                            onChange={(e) => onFormChange('description', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                            placeholder="Summer Sale Discount"
-                        />
-                    </div>
-                </div>
-
-                <div className="flex items-center">
-                    <input
-                        type="checkbox"
-                        checked={!!formData.active}
-                        onChange={(e) => onFormChange('active', e.target.checked)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        id="activeCheckbox"
-                    />
-                    <label htmlFor="activeCheckbox" className="ml-2 block text-sm text-gray-900">
-                        Activate coupon immediately
-                    </label>
-                </div>
-
-                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        className="px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                    >
-                        {mode === "create" ? "Create Coupon" : "Update Coupon"}
-                    </button>
-                </div>
-            </form>
+const CouponForm = ({ formData, onFormChange, onSubmit, onCancel, mode = "create" }) => (
+    <div className="bg-white shadow-lg rounded-xl border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">
+                {mode === "create" ? "Create New Coupon" : "Edit Coupon"}
+            </h3>
         </div>
-    );
+        <form onSubmit={onSubmit} className="p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Coupon Code *
+                    </label>
+                    <input
+                        type="text"
+                        value={formData.code}
+                        onChange={(e) => onFormChange('code', e.target.value.toUpperCase())}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="SUMMER25"
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Discount Type *
+                    </label>
+                    <select
+                        value={formData.discount_type}
+                        onChange={(e) => onFormChange('discount_type', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    >
+                        <option value="percentage">Percentage</option>
+                        <option value="fixed">Fixed Amount</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Discount Value *
+                    </label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.discount_value}
+                        onChange={(e) => onFormChange('discount_value', e.target.value)}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder={formData.discount_type === "percentage" ? "25" : "100"}
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Minimum Order Amount
+                    </label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.min_order_amount}
+                        onChange={(e) => onFormChange('min_order_amount', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="0"
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Maximum Uses
+                    </label>
+                    <input
+                        type="number"
+                        min="0"
+                        value={formData.max_uses}
+                        onChange={(e) => onFormChange('max_uses', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="Unlimited"
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Start Date
+                    </label>
+                    <input
+                        type="date"
+                        value={formData.start_at ? formData.start_at.split('T')[0] : ''}
+                        onChange={(e) => onFormChange('start_at', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        End Date
+                    </label>
+                    <input
+                        type="date"
+                        value={formData.end_at ? formData.end_at.split('T')[0] : ''}
+                        onChange={(e) => onFormChange('end_at', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    />
+                </div>
+
+                <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Description
+                    </label>
+                    <input
+                        type="text"
+                        value={formData.description}
+                        onChange={(e) => onFormChange('description', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="Summer Sale Discount"
+                    />
+                </div>
+            </div>
+
+            <div className="flex items-center">
+                <input
+                    type="checkbox"
+                    checked={!!formData.active}
+                    onChange={(e) => onFormChange('active', e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    id="activeCheckbox"
+                />
+                <label htmlFor="activeCheckbox" className="ml-2 block text-sm text-gray-900">
+                    Activate coupon immediately
+                </label>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <button
+                    type="button"
+                    onClick={onCancel}
+                    className="px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                >
+                    {mode === "create" ? "Create Coupon" : "Update Coupon"}
+                </button>
+            </div>
+        </form>
+    </div>
+);
 
 
 export default function Coupons({
@@ -277,7 +277,7 @@ export default function Coupons({
         </div>
     );
 
-    
+
 
     return (
         <div className="space-y-6">

@@ -19,18 +19,15 @@ export default function Notifications() {
   }, [fetchNotifications]);
 
   const handleMarkAllRead = async () => {
-  setMarkingAll(true);
-  try {
-    await API.put("/notifications/mark-all-read");
-    // Optimistically update UI state
-    // setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    // setUnreadCount(0);
-  } catch (err) {
-    console.error("Mark all read failed:", err);
-  } finally {
-    setMarkingAll(false);
-  }
-};
+    setMarkingAll(true);
+    try {
+      await API.put("/notifications/mark-all-read");
+    } catch (err) {
+      console.error("Mark all read failed:", err);
+    } finally {
+      setMarkingAll(false);
+    }
+  };
 
 
   return (
@@ -42,11 +39,10 @@ export default function Notifications() {
             <button
               onClick={handleMarkAllRead}
               disabled={markingAll}
-              className={`px-3 py-1 text-sm rounded ${
-                markingAll
+              className={`px-3 py-1 text-sm rounded ${markingAll
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-blue-600 hover:bg-blue-700 text-white"
-              }`}
+                }`}
             >
               {markingAll ? "Marking..." : "Mark All as Read"}
             </button>
@@ -60,15 +56,13 @@ export default function Notifications() {
             {notifications.map((n) => (
               <li
                 key={n.id}
-                className={`p-4 flex justify-between items-start ${
-                  !n.is_read ? "bg-yellow-50" : "bg-white"
-                }`}
+                className={`p-4 flex justify-between items-start ${!n.is_read ? "bg-yellow-50" : "bg-white"
+                  }`}
               >
                 <div>
                   <p
-                    className={`${
-                      !n.is_read ? "font-semibold" : "text-gray-600"
-                    }`}
+                    className={`${!n.is_read ? "font-semibold" : "text-gray-600"
+                      }`}
                   >
                     {n.message}
                   </p>

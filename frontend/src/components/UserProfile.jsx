@@ -84,12 +84,6 @@ export default function UserProfile({ authToken }) {
         fetchData();
     }, [authToken]);
 
-    // Handlers for user info change
-    // const handleUserInfoChange = (e) => {
-    //     const { name, value } = e.target;
-    //     setUserInfo((prev) => ({ ...prev, [name]: value }));
-    // };
-
     const handleUserInfoChange = (e) => {
         const { name, value, type, files } = e.target;
         if (type === "file") {
@@ -114,53 +108,39 @@ export default function UserProfile({ authToken }) {
         setPasswordForm((prev) => ({ ...prev, [name]: value }));
     };
 
-    // Submit updated user profile to API
-    // const submitUserInfo = async (e) => {
-    //     e.preventDefault();
-    //     setIsLoading(true);
-    //     try {
-    //         await updateUserProfile(userInfo, authToken);
-    //         setMessage({ type: "success", text: "Profile updated successfully" });
-    //     } catch (error) {
-    //         setMessage({ type: "error", text: "Failed to update profile" });
-    //     } finally {
-    //         setIsLoading(false);
-    //     }
-    // };
-
     const submitUserInfo = async (e) => {
-  e.preventDefault();
-  setIsLoading(true);
-  try {
-    const formData = new FormData();
-    formData.append("fullName", userInfo.fullName);
-    formData.append("email", userInfo.email);
-    formData.append("contactNumber", userInfo.contactNumber);
-    formData.append("dateOfBirth", userInfo.dateOfBirth);
-    formData.append("bio", userInfo.bio);
-    if (userInfo.profilePictureFile) {
-      formData.append("image", userInfo.profilePictureFile);
-    }
+        e.preventDefault();
+        setIsLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append("fullName", userInfo.fullName);
+            formData.append("email", userInfo.email);
+            formData.append("contactNumber", userInfo.contactNumber);
+            formData.append("dateOfBirth", userInfo.dateOfBirth);
+            formData.append("bio", userInfo.bio);
+            if (userInfo.profilePictureFile) {
+                formData.append("image", userInfo.profilePictureFile);
+            }
 
-    const res = await updateUserProfile(formData, authToken, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+            const res = await updateUserProfile(formData, authToken, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
 
-    setMessage({ type: "success", text: "Profile updated successfully" });
+            setMessage({ type: "success", text: "Profile updated successfully" });
 
-    if (userInfo.profilePictureFile && res.data.profilePicture) {
-      setUserInfo(prev => ({
-        ...prev,
-        profilePicture: `${res.data.profilePicture}?t=${Date.now()}`,
-      }));
-    }
+            if (userInfo.profilePictureFile && res.data.profilePicture) {
+                setUserInfo(prev => ({
+                    ...prev,
+                    profilePicture: `${res.data.profilePicture}?t=${Date.now()}`,
+                }));
+            }
 
-  } catch (error) {
-    setMessage({ type: "error", text: "Failed to update profile" });
-  } finally {
-    setIsLoading(false);
-  }
-};
+        } catch (error) {
+            setMessage({ type: "error", text: "Failed to update profile" });
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
 
 
@@ -441,17 +421,6 @@ export default function UserProfile({ authToken }) {
                             />
                         </div>
 
-                        {/* <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture URL</label>
-                            <input
-                                type="text"
-                                name="profilePicture"
-                                value={userInfo.profilePicture || ""}
-                                onChange={handleUserInfoChange}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                placeholder="https://example.com/image.jpg"
-                            />
-                        </div> */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Upload Profile Picture</label>
                             <input
@@ -462,13 +431,6 @@ export default function UserProfile({ authToken }) {
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                             />
 
-                            {/* {userInfo.profilePicture && (
-                                <img
-                                    src={`http://127.0.0.1:8000${userInfo.profilePicture}?t=${imageTimestamp}`}
-                                    alt="Profile preview"
-                                    className="mt-2 w-32 h-32 object-cover rounded"
-                                />
-                            )} */}
                         </div>
 
 
