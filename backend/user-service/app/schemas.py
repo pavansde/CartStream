@@ -3,6 +3,46 @@ from typing import Optional, List, Annotated, Dict
 from datetime import datetime, date
 
 
+
+# ===== Category Schemas =====
+
+class CategoryBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    parent_id: Optional[int] = None  # for hierarchical categories
+
+
+class CategoryCreate(CategoryBase):
+    pass
+
+
+class CategoryRead(CategoryBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+
+# ===== Item Attribute Schemas =====
+
+class ItemAttributeBase(BaseModel):
+    attribute_key: str = Field(..., description="The attribute key/name")
+    value: str
+
+
+class ItemAttributeCreate(ItemAttributeBase):
+    item_id: int
+
+
+class ItemAttributeRead(ItemAttributeBase):
+    id: int
+    # item_id: int
+
+    class Config:
+        from_attributes = True
+
+
 # =========================
 # User Schemas
 # =========================
@@ -60,10 +100,9 @@ class UserProfileBase(BaseModel):
 class UserProfileCreate(UserProfileBase):
     pass
 
-# class UserProfileUpdate(UserProfileBase):
-#     pass
 class UserProfileUpdateForm(BaseModel):
     full_name: Optional[str] = Field(None, alias="fullName")
+    profile_picture: Optional[str] = Field(None, alias="profilePicture")  # Added this on 16-10-2025
     contact_number: Optional[str] = Field(None, alias="contactNumber")
     date_of_birth: Optional[date] = Field(None, alias="dateOfBirth")
     bio: Optional[str]
@@ -93,6 +132,27 @@ class Token(BaseModel):
     refresh_token: str   # new addition
     token_type: str = "bearer"
 
+
+# ========================= 
+# New Variant Image Schemas
+# =========================
+class VariantImageBase(BaseModel):
+    image_url: str
+    display_order: int = 0
+
+
+class VariantImageCreate(VariantImageBase):
+    variant_id: int
+
+
+class VariantImageRead(VariantImageBase):
+    id: int
+    variant_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 # ========================= 
 # Product Variant Schemas
 # =========================
@@ -115,28 +175,8 @@ class ProductVariantUpdate(ProductVariantBase):
 class ProductVariantRead(ProductVariantBase):
     id: int
     item_id: int
-    images: List[str] = []  # Add this field for multiple images
-
-    class Config:
-        from_attributes = True
-
-
-# ========================= 
-# New Variant Image Schemas
-# =========================
-class VariantImageBase(BaseModel):
-    image_url: str
-    display_order: int = 0
-
-
-class VariantImageCreate(VariantImageBase):
-    variant_id: int
-
-
-class VariantImageRead(VariantImageBase):
-    id: int
-    variant_id: int
-    created_at: datetime
+    # images: List[str] = []  # Add this field for multiple images commented this on 16-10-2025
+    variant_images: List[VariantImageRead] = []
 
     class Config:
         from_attributes = True
@@ -147,19 +187,23 @@ class VariantImageRead(VariantImageBase):
 class ItemBase(BaseModel):
     title: str
     description: Optional[str] = None
+    brand: Optional[str] = None 
 
 
 class ItemCreate(ItemBase):
     title: str
     description: Optional[str]
+    brand: Optional[str]
  
 
 class ItemRead(ItemBase):
     id: int
     owner_id: int
-    image_url: Optional[str] = None
-    low_stock_alert: bool = False        # always included, default False
+    # image_url: Optional[str] = None
+    # low_stock_alert: bool = False        # always included, default False commented these 2 on 16-10-2025
     variants: Optional[List[ProductVariantRead]] = []   # new field to hold variants
+    categories: Optional[List[CategoryRead]] = []
+    attributes: Optional[List[ItemAttributeRead]] = []
 
     class Config:
         from_attributes = True
@@ -387,6 +431,11 @@ class CartItem(BaseModel):
     variant_id: Optional[int] = None  
     item: ItemRead                     # full item data for display
     quantity: int = Field(..., ge=1)
+    # added the below fields on 16-10-2025
+    item_id: int
+    user_id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

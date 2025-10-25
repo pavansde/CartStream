@@ -44,7 +44,7 @@ export function AuthProvider({ children }) {
     setAxiosAuthToken(access);
 
     if (userData) {
-      console.log("AuthContext.login() → setting user with role:", userData.role);
+      // console.log("AuthContext.login() → setting user with role:", userData.role);
       const enrichedUser = { ...userData, fullProfileLoaded: true };
       localStorage.setItem("user", JSON.stringify(enrichedUser));
       setUser(enrichedUser);
@@ -75,7 +75,7 @@ export function AuthProvider({ children }) {
         ...res.data,    // latest server data overwrite (role, username, etc.)
         fullProfileLoaded: true,
       };
-      console.log("fetchUserProfile() → merged user role:", mergedUser.role);
+      // console.log("fetchUserProfile() → merged user role:", mergedUser.role);
 
       localStorage.setItem("user", JSON.stringify(mergedUser));
       setUser(mergedUser);

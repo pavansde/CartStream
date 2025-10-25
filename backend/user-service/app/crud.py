@@ -3,7 +3,7 @@ from app.models import users, notifications, user_profiles
 from passlib.context import CryptContext
 from app.schemas import UserUpdate
 from datetime import datetime, timezone, timedelta
-from app.email import send_low_stock_email
+from app.email_service import send_low_stock_email
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

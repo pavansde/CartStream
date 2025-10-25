@@ -17,7 +17,7 @@ from app.auth import (
 )
 from app.crud import update_user, update_user_profile, get_user_profile, create_user_profile
 from app.deps import get_current_user, get_current_admin_user
-from app.email import send_reset_email, send_verification_email, send_welcome_email
+from app.email_service import send_reset_email, send_verification_email, send_welcome_email
 import logging
 
 router = APIRouter()
@@ -64,7 +64,7 @@ async def create_user(user: UserCreate, background_tasks: BackgroundTasks):
     user_id = await database.execute(query)
 
     # Send verification email in background
-    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://10.10.10.187:3000")
+    FRONTEND_URL = os.getenv("FRONTEND_URL")
     verify_link = f"{FRONTEND_URL}/verify-email?token={verification_token}"
     # background_tasks.add_task(send_verification_email, to_email=user.email, verify_link=verify_link)
     logging.info(f"Scheduling verification email to {user.email} with link {verify_link}")
@@ -361,7 +361,8 @@ async def forgot_password(request: ForgotPasswordRequest, background_tasks: Back
 
     reset_token = create_reset_password_token(email)
 
-    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:3000")
+    FRONTEND_URL = os.getenv("FRONTEND_URL")
+    print("Frontend URL:", FRONTEND_URL)
     reset_link = f"{FRONTEND_URL}/reset-password?token={reset_token}"
 
     background_tasks.add_task(send_reset_email, to_email=email, reset_link=reset_link)

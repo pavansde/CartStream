@@ -46,6 +46,36 @@ variant_images = Table(
 )
 
 
+# ===== Categories Table =====
+categories = Table(
+    "categories",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("name", String(255), nullable=False, unique=True),
+    Column("description", Text, nullable=True),
+    Column("parent_id", Integer, ForeignKey("categories.id"), nullable=True),  # for hierarchical categories
+)
+
+# ===== Item Categories Association Table =====
+item_categories = Table(
+    "item_categories",
+    metadata,
+    Column("item_id", Integer, ForeignKey("items.id", ondelete="CASCADE"), primary_key=True),
+    Column("category_id", Integer, ForeignKey("categories.id", ondelete="CASCADE"), primary_key=True),
+)
+
+# ===== Item Attributes Table =====
+item_attributes = Table(
+    "item_attributes",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("item_id", Integer, ForeignKey("items.id", ondelete="CASCADE"), nullable=False),
+    Column("attribute_key", String(255), nullable=False),
+    Column("value", Text, nullable=False),
+)
+
+
+
 
 # ===== User Profiles Table =====
 
@@ -69,9 +99,10 @@ items = Table(
     Column("id", Integer, primary_key=True),
     Column("title", String(100), nullable=False),
     Column("description", Text),
+    Column("brand", String(100), nullable=True),
     # Foreign key to the shop owner's user ID
     Column("owner_id", Integer, ForeignKey("users.id"), nullable=False),
-)
+)   
 
 orders = Table(
     "orders",

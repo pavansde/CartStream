@@ -1,6 +1,3 @@
-// components/AdminDashboardStats.jsx
-import React from 'react';
-
 const AdminDashboardStats = ({ 
   users = [], 
   items = [], 

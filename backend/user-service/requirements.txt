@@ -13,3 +13,4 @@ cryptography
 python-jose[cryptography]
 python-multipart
 httpx
+status

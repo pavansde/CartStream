@@ -144,7 +144,7 @@ export default function ShopOwnerOrders({ orders: propOrders }) {
     }
 
     // For static files, point to the backend server
-    const backendBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    const backendBaseUrl = process.env.REACT_APP_API_URL;
 
     // Remove leading slash if present to avoid double slashes
     const cleanPath = imageUrl.startsWith('/') ? imageUrl.slice(1) : imageUrl;
@@ -456,10 +456,10 @@ export default function ShopOwnerOrders({ orders: propOrders }) {
                                 alt={item.item_title || "Product image"}
                                 className="w-10 h-10 object-cover rounded-lg border border-gray-200"
                                 onLoad={(e) => {
-                                  console.log('Image loaded successfully:', item.item_title, e.target.src);
+                                  // console.log('Image loaded successfully:', item.item_title, e.target.src);
                                 }}
                                 onError={(e) => {
-                                  console.log('Image failed to load:', item.item_title, e.target.src);
+                                  // console.log('Image failed to load:', item.item_title, e.target.src);
                                   e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239CA3AF'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='1' d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' /%3E%3C/svg%3E";
                                 }}
                                 style={{ backgroundColor: 'red' }} // Temporary to make image visible

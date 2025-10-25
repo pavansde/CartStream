@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 // Address display component
 const Address = ({ address, onSetDefault, onEdit, onDelete }) => {

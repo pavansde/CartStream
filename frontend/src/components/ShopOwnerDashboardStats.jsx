@@ -1,5 +1,3 @@
-import React from 'react';
-
 const ShopOwnerDashboardStats = ({
   items = [],
   orders = [],
@@ -222,9 +220,9 @@ const ShopOwnerDashboardStats = ({
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
                     className={`h-2 rounded-full ${status === 'delivered' ? 'bg-green-500' :
-                        status === 'shipped' ? 'bg-purple-500' :
-                          status === 'processing' ? 'bg-blue-500' :
-                            status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
+                      status === 'shipped' ? 'bg-purple-500' :
+                        status === 'processing' ? 'bg-blue-500' :
+                          status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
                       }`}
                     style={{ width: `${percentage}%` }}
                   ></div>

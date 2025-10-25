@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+import os
+from dotenv import load_dotenv
 from app.database import database, DATABASE_URL
 from app.models import metadata  # Import shared metadata with all tables
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,7 +13,11 @@ from app.routes import carts as carts_routes  # Import the carts routes
 from sqlalchemy import create_engine
 from app.routes import coupons as coupons_routes
 from app.routes import addresses as addresses_routes
+from app.routes import categories as categories_routes
+from app.routes import item_attributes as item_attributes_routes
 from fastapi.staticfiles import StaticFiles
+
+load_dotenv(dotenv_path="/app/.env")
 
 app = FastAPI(title="User Service")
 
@@ -19,7 +25,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 origins = [
     "http://127.0.0.1:3000",
-    "http://localhost:3000"  # React frontend URL
+    "http://localhost:3000",
     # add other allowed origins here
 ]
 
@@ -47,6 +53,8 @@ app.include_router(notifications_routes.router)
 app.include_router(carts_routes.router, prefix="/cart")
 app.include_router(coupons_routes.router)
 app.include_router(addresses_routes.router)
+app.include_router(categories_routes.router)
+app.include_router(item_attributes_routes.router)
 
 
 @app.on_event("startup")

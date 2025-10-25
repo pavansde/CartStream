@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from app.database import database
-from app.models import items, users, product_variants, variant_images
-from app.schemas import ItemRead, Message, ProductVariantRead
+from app.models import items, users, product_variants, variant_images, item_attributes, item_categories, categories
+from app.schemas import ItemRead, Message, ProductVariantRead, ItemAttributeRead, ItemAttributeCreate, CategoryRead, CategoryCreate
 from typing import List,Optional
 from app.deps import get_current_shop_owner, get_current_admin_user, get_current_shop_owner_or_admin
 from app.crud import create_notification
 import os
 import time
+import json
+from collections import defaultdict
 
 LOW_STOCK_THRESHOLD = 5
 router = APIRouter()
@@ -21,6 +23,8 @@ async def list_items():
         items_list = []
         for item in items_results:
             item_dict = dict(item)
+
+            # Fetch variants
             variants_results = await database.fetch_all(
                 product_variants.select().where(product_variants.c.item_id == item["id"])
             )
@@ -35,12 +39,28 @@ async def list_items():
                 variant_dict["images"] = [img["image_url"] for img in images_results]
                 variants_list.append(variant_dict)
             item_dict["variants"] = variants_list
+
+            # Fetch categories linked to item
+            categories_results = await database.fetch_all(
+                categories.select()
+                .select_from(categories.join(item_categories, categories.c.id == item_categories.c.category_id))
+                .where(item_categories.c.item_id == item["id"])
+            )
+            item_dict["categories"] = [dict(cat) for cat in categories_results]
+
+            # Fetch item attributes
+            attributes_results = await database.fetch_all(
+                item_attributes.select().where(item_attributes.c.item_id == item["id"])
+            )
+            item_dict["attributes"] = [dict(attr) for attr in attributes_results]
+
             items_list.append(item_dict)
         return items_list
     except Exception as e:
         import traceback
         traceback.print_exc()
         raise e
+
 
 
 # =====================
@@ -78,6 +98,38 @@ async def list_my_items(current_user=Depends(get_current_shop_owner)):
         {"item_ids": tuple(item_ids)}
     )
     
+    # Get categories for these items
+    categories_query = """
+    SELECT 
+        ic.item_id,
+        c.id as category_id,
+        c.name as category_name
+    FROM item_categories ic
+    JOIN categories c ON ic.category_id = c.id
+    WHERE ic.item_id IN :item_ids
+    """
+    
+    categories_results = await database.fetch_all(
+        categories_query,
+        {"item_ids": tuple(item_ids)}
+    )
+    
+    # Get attributes for these items
+    attributes_query = """
+    SELECT 
+        ia.item_id,
+        ia.id as attribute_id,
+        ia.attribute_key,
+        ia.value
+    FROM item_attributes ia
+    WHERE ia.item_id IN :item_ids
+    """
+    
+    attributes_results = await database.fetch_all(
+        attributes_query,
+        {"item_ids": tuple(item_ids)}
+    )
+    
     # Organize variants by item_id and parse JSON
     variants_by_item = {}
     for variant in variants_results:
@@ -109,10 +161,38 @@ async def list_my_items(current_user=Depends(get_current_shop_owner)):
         
         variants_by_item[item_id].append(variant_data)
     
+    # Organize categories by item_id
+    categories_by_item = {}
+    for category in categories_results:
+        item_id = category["item_id"]
+        if item_id not in categories_by_item:
+            categories_by_item[item_id] = []
+        
+        categories_by_item[item_id].append({
+            "id": category["category_id"],
+            "name": category["category_name"]
+        })
+    
+    # Organize attributes by item_id
+    attributes_by_item = {}
+    for attribute in attributes_results:
+        item_id = attribute["item_id"]
+        if item_id not in attributes_by_item:
+            attributes_by_item[item_id] = []
+        
+        attributes_by_item[item_id].append({
+            "id": attribute["attribute_id"],
+            "attribute_key": attribute["attribute_key"],
+            "value": attribute["value"]
+        })
+    
     # Build final response
     response_items = []
     for item in items_results:
-        item_variants = variants_by_item.get(item["id"], [])
+        item_id = item["id"]
+        item_variants = variants_by_item.get(item_id, [])
+        item_categories = categories_by_item.get(item_id, [])
+        item_attributes = attributes_by_item.get(item_id, [])
         
         # Check for low stock alert (any variant has low stock)
         low_stock_alert = any(
@@ -123,6 +203,8 @@ async def list_my_items(current_user=Depends(get_current_shop_owner)):
         response_items.append({
             **dict(item),
             "variants": item_variants,
+            "categories": item_categories,
+            "attributes": item_attributes,
             "low_stock_alert": low_stock_alert
         })
     
@@ -145,34 +227,81 @@ async def get_item_detail(item_id: int):
 # =====================
 @router.get("/items/{item_id}/detail")
 async def get_item_detail(item_id: int):
-    # Get base item
+    # Base item
     item = await database.fetch_one(items.select().where(items.c.id == item_id))
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    
-    # Get variants
+
+    # Variants
     variants = await database.fetch_all(
         product_variants.select().where(product_variants.c.item_id == item_id)
     )
-    
-    variants_with_images = []
-    for variant in variants:
-        # Get ALL images for this variant from variant_images table
-        variant_images_list = await database.fetch_all(
-            variant_images.select().where(variant_images.c.variant_id == variant["id"]).order_by(variant_images.c.display_order)
+    variant_ids = [v["id"] for v in variants]
+
+    # All images for all variants (one batch)
+    images_by_variant = defaultdict(list)
+    if variant_ids:
+        imgs = await database.fetch_all(
+            variant_images.select()
+            .where(variant_images.c.variant_id.in_(variant_ids))
+            .order_by(variant_images.c.variant_id, variant_images.c.display_order)
         )
-        
-        # Create list of all image URLs including the primary image_url
-        all_images = [img["image_url"] for img in variant_images_list]
-        
-        variants_with_images.append({
-            **dict(variant),
-            "images": all_images  # This should include BOTH images
-        })
-    
+        for img in imgs:
+            images_by_variant[img["variant_id"]].append(dict(img))
+
+    # Categories
+    from sqlalchemy import select
+    cat_join = (
+        select(categories)
+        .select_from(categories.join(item_categories, categories.c.id == item_categories.c.category_id))
+        .where(item_categories.c.item_id == item_id)
+    )
+    cats = await database.fetch_all(cat_join)
+    categories_list = [dict(c) for c in cats]
+
+    # Attributes
+    attrs = await database.fetch_all(
+        item_attributes.select().where(item_attributes.c.item_id == item_id)
+    )
+    attributes_list = [dict(a) for a in attrs]
+
+    # Build variants with full image lists
+    variants_with_images = []
+    for v in variants:
+        vd = dict(v)
+        primary = vd.get("image_url")
+
+        # Start images with primary if present, then append from DB, dedup, keep order
+        seen = set()
+        images = []
+        if primary:
+            images.append({"image_url": primary, "display_order": 0, "is_primary": True})
+            seen.add(primary)
+        for img in images_by_variant.get(v["id"], []):
+            url = img.get("image_url")
+            if url and url not in seen:
+                images.append({
+                    "image_url": url,
+                    "display_order": img.get("display_order", 999),
+                    "is_primary": False
+                })
+                seen.add(url)
+
+        # Sort by primary first, then display_order
+        images.sort(key=lambda x: (0 if x["is_primary"] else 1, x.get("display_order", 999)))
+
+        # Keep backward compatibility: keep image_url and variant_images array
+        vd["variant_images"] = images  # [{image_url, display_order, is_primary}, ...]
+        # Optionally also expose a simple list if your FE wants it:
+        vd["images"] = [im["image_url"] for im in images]
+
+        variants_with_images.append(vd)
+
     return {
         **dict(item),
-        "variants": variants_with_images
+        "variants": variants_with_images,
+        "categories": categories_list,
+        "attributes": attributes_list,
     }
 
 # =====================
@@ -240,33 +369,96 @@ async def admin_list_items():
     
     return items_with_variants
 
-# # =====================
-# # Shop Owner → create new item with stock
-# # =====================
+# =====================
+# Shop Owner → create new item with stock
+# =====================
 @router.post("/items/", response_model=ItemRead)
 async def create_item(
     title: str = Form(...),
     description: Optional[str] = Form(None),
-    owner_id=Depends(get_current_shop_owner),
+    brand: Optional[str] = Form(None),
+    category_ids: Optional[List[int]] = Form(None),
+    attributes: Optional[str] = Form(None),
+    owner_id = Depends(get_current_shop_owner),
 ):
-    item_id = await database.execute(
-        items.insert().values(
-            title=title,
-            description=description,
-            # stock=0,
-            owner_id=owner_id["id"],
-        )
-    )
-    return {
-        "id": item_id,
+    # Insert new item
+    item_values = {
         "title": title,
         "description": description,
+        "brand": brand,
         "owner_id": owner_id["id"],
-        "low_stock_alert": False,
-        "variants": [],
-        "image_url": None,
     }
+    
+    item_id = await database.execute(
+        items.insert().values(**item_values)
+    )
 
+    # Link categories if provided
+    if category_ids:
+        for cat_id in category_ids:
+            try:
+                await database.execute(
+                    item_categories.insert().values(item_id=item_id, category_id=cat_id)
+                )
+                print(f"Successfully linked category {cat_id} to item {item_id}")
+            except Exception as e:
+                print(f"Error linking category {cat_id} to item {item_id}: {e}")
+
+    # Insert attributes (parse JSON string to list of dicts)
+    if attributes:
+        try:
+            parsed_attrs = json.loads(attributes)
+            for attr in parsed_attrs:
+                try:
+                    await database.execute(
+                        item_attributes.insert().values(
+                            item_id=item_id,
+                            attribute_key=attr.get("attribute_key"),
+                            value=attr.get("value"),
+                        )
+                    )
+                    print(f"Successfully added attribute {attr.get('attribute_key')} to item {item_id}")
+                except Exception as e:
+                    print(f"Error inserting attribute {attr}: {e}")
+        except json.JSONDecodeError as e:
+            print(f"Error parsing attributes JSON: {e}")
+
+    # Fetch the item details
+    item_query = """
+    SELECT id, title, description, brand, owner_id
+    FROM items
+    WHERE id = :item_id
+    """
+    item = await database.fetch_one(item_query, {"item_id": item_id})
+    
+    # Fetch categories for this item
+    category_query = """
+    SELECT c.id, c.name, c.description, c.parent_id
+    FROM categories c
+    INNER JOIN item_categories ic ON c.id = ic.category_id
+    WHERE ic.item_id = :item_id
+    """
+    categories = await database.fetch_all(category_query, {"item_id": item_id})
+    
+    # Fetch attributes for this item - FIXED: Include item_id in SELECT
+    attr_query = """
+    SELECT id, item_id, attribute_key, value  -- Added item_id here
+    FROM item_attributes
+    WHERE item_id = :item_id
+    """
+    attributes = await database.fetch_all(attr_query, {"item_id": item_id})
+    
+    # Return the created item with proper schema
+    return {
+        "id": item["id"],
+        "title": item["title"],
+        "description": item["description"],
+        "brand": item["brand"],
+        "owner_id": item["owner_id"],
+        "categories": [dict(category) for category in categories],
+        "attributes": [dict(attribute) for attribute in attributes],  # This now includes item_id
+        "variants": [],
+    }
 
 # ==================
 # Shop Owner → update item (including stock)

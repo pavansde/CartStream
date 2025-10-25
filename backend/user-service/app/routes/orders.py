@@ -6,7 +6,7 @@ from app.deps import get_current_user, get_current_shop_owner, get_current_admin
 from app.schemas import OrderCreate, OrderRead, OrderUpdateStatus, Message, OrderItemRead, PaymentInitiateRequest, PhonePeWebhookPayload
 from app.crud import create_notification
 from datetime import datetime, timezone, timedelta
-from app.email import send_order_confirmation, send_order_status_notification
+from app.email_service import send_order_confirmation, send_order_status_notification
 import asyncio
 import uuid
 

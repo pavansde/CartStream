@@ -1,5 +1,3 @@
-import React from "react";
-
 export default function ErrorState({ onRetry, message }) {
   return (
     <div className="min-h-max w-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50/30 p-6">

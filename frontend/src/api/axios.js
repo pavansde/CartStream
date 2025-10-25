@@ -1,17 +1,29 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: 'http://127.0.0.1:8000', // FastAPI backend URL
-  // baseURL: 'http://10.10.10.187:8000', // FastAPI backend URL
+  baseURL: process.env.REACT_APP_API_URL // FastAPI backend URL
 });
 
-// Add token to requests if available
-API.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+// // Add token to requests if available
+// API.interceptors.request.use((config) => {
+//   const token = localStorage.getItem('access_token');
+//   if (token) {
+//     config.headers.Authorization = `Bearer ${token}`;
+//   }
+//   return config;
+// });
+
+API.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  return config;
-});
+);
 
 export default API;

@@ -4,6 +4,7 @@ from app.database import database
 from app.models import carts, items, product_variants, variant_images
 from app.schemas import CartItemAdd, CartItemUpdate, CartItem, Message, ItemRead
 from app.deps import get_current_user
+import traceback
 from sqlalchemy import select, and_
 
 router = APIRouter()
@@ -95,13 +96,17 @@ async def get_cart(current_user=Depends(get_current_user)):
                     "owner_id": row["item_owner_id"],
                     "image_url": image_url,
                     "low_stock_alert": low_stock_alert,
-                    "variants": variants_list  # This now includes item_id for each variant
+                    "variants": variants_list
                 },
+                "item_id": row["item_id"],    # Add this field at top level
+                "user_id": row["user_id"],    # Add this field at top level
             })
+
 
         return cart_response
     except Exception as e:
         print(f"Error in get_cart: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="Failed to fetch cart items")
 
 
@@ -256,6 +261,11 @@ async def add_or_update_item(data: CartItemAdd, current_user=Depends(get_current
             item=item_obj,
             quantity=cart_item_data["quantity"],
             variant_id=cart_item_data["variant_id"],
+            item_id=cart_item_data["item_id"],
+            user_id=cart_item_data["user_id"],
+            created_at = cart_item_data["created_at"] if "created_at" in cart_item_data else None,
+            updated_at = cart_item_data["updated_at"] if "updated_at" in cart_item_data else None
+
         )
 
         print(f"✅ Returning cart item: {cart_item_obj}")
@@ -265,6 +275,7 @@ async def add_or_update_item(data: CartItemAdd, current_user=Depends(get_current
         raise
     except Exception as e:
         print(f"💥 Error in add_or_update_item: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="Failed to add/update cart item")
 
 

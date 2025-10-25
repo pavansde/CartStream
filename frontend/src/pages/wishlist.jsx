@@ -50,7 +50,7 @@ export default function Wishlist() {
     }
 
     // For static files, point to the backend server
-    const backendBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    const backendBaseUrl = process.env.REACT_APP_API_URL;
     
     // Remove leading slash if present to avoid double slashes
     const cleanPath = imageUrl.startsWith('/') ? imageUrl.slice(1) : imageUrl;
@@ -187,7 +187,7 @@ export default function Wishlist() {
                       <button
                         onClick={() => {
                           // Add to cart functionality can go here
-                          console.log('Add to cart:', item.item.id);
+                          // console.log('Add to cart:', item.item.id);
                         }}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
                       >
@@ -226,7 +226,7 @@ export default function Wishlist() {
               <button
                 onClick={() => {
                   // Clear all functionality can go here
-                  console.log('Clear all wishlist items');
+                  // console.log('Clear all wishlist items');
                 }}
                 className="text-red-600 hover:text-red-800 font-medium text-sm"
               >

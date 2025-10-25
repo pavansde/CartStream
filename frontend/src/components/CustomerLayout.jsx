@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from "react";
+import { useState, useContext, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import Sidebar from "./Sidebar";
@@ -7,7 +7,7 @@ export default function CustomerLayout({ children, title = "Customer Dashboard" 
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -86,7 +86,7 @@ export default function CustomerLayout({ children, title = "Customer Dashboard" 
       />
 
       {/* Main Content Area - Full height and width utilization */}
-<div className={`flex-1 flex flex-col min-h-screen transition-all duration-400 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
+      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-400 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
         {/* Mobile menu button - Only shown on mobile */}
         <div className="lg:hidden flex-shrink-0 p-4 border-b border-gray-200 bg-white">
           <div className="flex items-center justify-between">
@@ -106,13 +106,6 @@ export default function CustomerLayout({ children, title = "Customer Dashboard" 
         {/* Page Content - Takes all remaining space */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Optional: Page header for desktop */}
-          <div className="hidden lg:block flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4">
-            <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-            {title !== "Customer Dashboard" && (
-              <p className="text-gray-600 mt-1">Manage your account and shopping experience</p>
-            )}
-          </div>
-
           {/* Scrollable content area */}
           <div className="flex-1 overflow-auto">
             <div className="h-full">

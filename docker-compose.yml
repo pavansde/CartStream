@@ -1,6 +1,43 @@
+# services:
+#   user-service:
+#     build: backend/user-service
+#     container_name: user-service
+#     ports:
+#       - "8000:80"
+#     depends_on:
+#       mysql-db:
+#         condition: service_healthy
+#     environment:
+#       DATABASE_URL: mysql+aiomysql://root:12345@mysql-db:3306/users
+#     volumes:
+#       - ./user-service:/app   # Mount local code into container
+#       - ./static:/app/static
+#     command: uvicorn app.main:app --host 0.0.0.0 --port 80 --reload
+
+#   mysql-db:
+#     image: mysql:8
+#     container_name: mysql-db
+#     restart: always
+#     environment:
+#       MYSQL_ROOT_PASSWORD: 12345
+#       MYSQL_DATABASE: users
+#     ports:
+#       - "3307:3306"
+#     volumes:
+#       - mysql-data:/var/lib/mysql
+#     healthcheck:
+#       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p12345"]
+#       interval: 5s
+#       retries: 10
+#       start_period: 5s
+
+# volumes:
+#   mysql-data:
+
+
 services:
   user-service:
-    build: ./user-service
+    build: backend/user-service
     container_name: user-service
     ports:
       - "8000:80"
@@ -10,8 +47,9 @@ services:
     environment:
       DATABASE_URL: mysql+aiomysql://root:12345@mysql-db:3306/users
     volumes:
-      - ./user-service:/app   # Mount local code into container
-      - ./static:/app/static
+      - ./backend/user-service:/app      # Correct local backend code mount
+      - ./static:/app/static             # Adjust or verify static folder path
+      - ./backend/.env:/app/.env
     command: uvicorn app.main:app --host 0.0.0.0 --port 80 --reload
 
   mysql-db:

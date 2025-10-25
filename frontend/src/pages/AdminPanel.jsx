@@ -1,14 +1,13 @@
-import React, { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext } from "react";
 import API from "../api/axios";
 import { AuthContext } from "../context/AuthContext";
 import { updateOrderStatus } from "../api/orders";
 import { getAdminCoupons, deleteAdminCoupon, toggleCouponStatus, createAdminCoupon, updateAdminCoupon } from "../api/coupons";
-import CouponsTable from "../pages/Coupons"; // Import the Coupons component
+import CouponsTable from "../pages/Coupons";
 import Sidebar from "../components/Sidebar";
 import { updateItem } from "../api/items";
 import AdminDashboardStats from "../components/AdminDashboardStats";
-
-// Tab components (DashboardTab, UsersTab, OrdersTab, ItemsTab remain the same)
+import CategoriesManager from "../pages/CategoriesManager";
 
 const DashboardTab = ({ users, items, orders, coupons }) => (
   <AdminDashboardStats
@@ -119,33 +118,6 @@ const OrdersTab = ({ orders, ordersLoading, ordersError, onStatusChange }) => {
     });
   };
 
-  // Function to get unique shop owners from order items
-  const getShopOwnersFromOrder = (order) => {
-    if (!order.items || order.items.length === 0) return ['Unknown Shop'];
-
-    // For now, we'll use the shop_owner_name from the order
-    // But ideally, the API should provide shop owner per item
-    if (order.shop_owner_name) {
-      return [order.shop_owner_name];
-    }
-
-    return ['Multiple Shops']; // Fallback
-  };
-
-  // Function to group items by shop owner (for future when API provides this)
-  const groupItemsByShopOwner = (items) => {
-    const groups = {};
-    items.forEach(item => {
-      // Since API doesn't provide shop_owner per item, we'll group by item_id as placeholder
-      const shopKey = item.shop_owner_name || `Shop-${item.item_id}`;
-      if (!groups[shopKey]) {
-        groups[shopKey] = [];
-      }
-      groups[shopKey].push(item);
-    });
-    return groups;
-  };
-
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200">
@@ -190,8 +162,7 @@ const OrdersTab = ({ orders, ordersLoading, ordersError, onStatusChange }) => {
                 const statusConfig = getStatusConfig(order.status);
                 const totalItems = order.items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
                 const totalRevenue = order.items?.reduce((sum, item) => sum + (item.line_total_price || 0), 0) || 0;
-                const shopOwners = getShopOwnersFromOrder(order);
-                const hasMultipleShops = shopOwners.length > 1;
+                const shopOwners = order.shop_owner_name ? [order.shop_owner_name] : ['Multiple Shops'];
 
                 return (
                   <tr key={order.id} className="hover:bg-gray-50 transition-colors">
@@ -206,6 +177,9 @@ const OrdersTab = ({ orders, ordersLoading, ordersError, onStatusChange }) => {
                             Username: {order.customer_username}
                           </div>
                         )}
+                        <div className="text-xs text-gray-500 mt-1">
+                          {formatDate(order.order_date)}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -240,22 +214,9 @@ const OrdersTab = ({ orders, ordersLoading, ordersError, onStatusChange }) => {
                               <div className="text-sm font-medium text-gray-900">
                                 {shopOwner}
                               </div>
-                              {hasMultipleShops && (
-                                <div className="text-xs text-gray-500">
-                                  {order.items?.filter(item =>
-                                    item.shop_owner_name === shopOwner ||
-                                    !item.shop_owner_name
-                                  ).length || 0} items
-                                </div>
-                              )}
                             </div>
                           </div>
                         ))}
-                        {hasMultipleShops && (
-                          <div className="text-xs text-blue-600 font-medium">
-                            Multi-shop order
-                          </div>
-                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -305,10 +266,14 @@ const OrdersTab = ({ orders, ordersLoading, ordersError, onStatusChange }) => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-2">
+                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusConfig.color}`}>
+                          <span className="mr-1">{statusConfig.icon}</span>
+                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        </div>
                         <select
                           value={order.status}
                           onChange={(e) => onStatusChange(order.id, e.target.value)}
-                          className={`rounded-lg border px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${statusConfig.color}`}
+                          className="rounded-lg border px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                         >
                           <option value="pending">Pending</option>
                           <option value="processing">Processing</option>
@@ -329,7 +294,6 @@ const OrdersTab = ({ orders, ordersLoading, ordersError, onStatusChange }) => {
   );
 };
 
-
 const ItemsTab = ({
   items,
   onDeleteItem,
@@ -342,7 +306,7 @@ const ItemsTab = ({
 }) => {
   const [variantFormByItemId, setVariantFormByItemId] = useState({});
   const [imagePreviews, setImagePreviews] = useState({});
-  const [variantsByItemId, setVariantsByItemId] = useState({});
+  const apiBaseUrl = process.env.REACT_APP_API_URL;
 
   // Function to get all images for a variant
   const getVariantImages = (variant) => {
@@ -350,10 +314,10 @@ const ItemsTab = ({
     if (variant.image_url) {
       images.push(variant.image_url);
     }
-    if (variant.images && Array.isArray(variant.images)) {
-      variant.images.forEach(imageUrl => {
-        if (imageUrl !== variant.image_url && !images.includes(imageUrl)) {
-          images.push(imageUrl);
+    if (variant.variant_images && Array.isArray(variant.variant_images)) {
+      variant.variant_images.forEach(variantImage => {
+        if (variantImage.image_url && !images.includes(variantImage.image_url)) {
+          images.push(variantImage.image_url);
         }
       });
     }
@@ -419,8 +383,8 @@ const ItemsTab = ({
       });
 
       // TODO: Add API call for admin to create variants
-      console.log("Creating variant for item:", itemId, formData);
-      
+      // console.log("Creating variant for item:", itemId, formData);
+
       // Reset form and previews
       setVariantFormByItemId(prev => ({ ...prev, [itemId]: {} }));
       setImagePreviews(prev => ({ ...prev, [itemId]: [] }));
@@ -480,7 +444,7 @@ const ItemsTab = ({
                 <div className="flex items-center space-x-4">
                   {item.image_url ? (
                     <img
-                      src={`http://localhost:8000${item.image_url}`}
+                      src={`${apiBaseUrl}${item.image_url}`}
                       alt={item.title}
                       className="w-16 h-16 object-cover rounded-lg"
                     />
@@ -493,17 +457,18 @@ const ItemsTab = ({
                     <h3 className="text-lg font-semibold text-gray-900">{item.title}</h3>
                     <p className="text-gray-600 text-sm">{item.description}</p>
                     <p className="text-gray-500 text-xs">Owner: {item.owner_username}</p>
+                    {item.brand && <p className="text-gray-500 text-xs">Brand: {item.brand}</p>}
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button 
-                    onClick={() => onEditItem(item)} 
+                  <button
+                    onClick={() => onEditItem(item)}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium"
                   >
                     Edit
                   </button>
-                  <button 
-                    onClick={() => onDeleteItem(item.id)} 
+                  <button
+                    onClick={() => onDeleteItem(item.id)}
                     className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm font-medium"
                   >
                     Delete
@@ -511,15 +476,45 @@ const ItemsTab = ({
                 </div>
               </div>
 
+              {/* Categories Section */}
+              {item.categories && item.categories.length > 0 && (
+                <div className="ml-6 mb-4">
+                  <h4 className="text-md font-semibold mb-2 text-gray-800">Categories</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {item.categories.map(category => (
+                      <span key={category.id} className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm">
+                        {category.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Attributes Section */}
+              {item.attributes && item.attributes.length > 0 && (
+                <div className="ml-6 mb-4">
+                  <h4 className="text-md font-semibold mb-2 text-gray-800">Attributes</h4>
+                  <div className="space-y-1">
+                    {item.attributes.map(attr => (
+                      <div key={attr.id} className="text-sm">
+                        <span className="font-medium">{attr.key}:</span> {attr.value}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Variants List */}
               <div className="ml-6 mb-4">
                 <h4 className="text-md font-semibold mb-3 text-gray-800">Product Variants</h4>
-                {variantsByItemId?.[item.id]?.length > 0 ? (
+                {item.variants && item.variants.length > 0 ? (
                   <div className="space-y-4">
-                    {variantsByItemId[item.id].map((variant) => {
+                    {item.variants.map((variant) => {
                       const variantImages = getVariantImages(variant);
+                      const isLowStock = variant.stock !== null && variant.stock < 10;
+
                       return (
-                        <div key={variant.id} className="border rounded-lg p-4 bg-gray-50">
+                        <div key={variant.id} className={`border rounded-lg p-4 ${isLowStock ? 'bg-red-50 border-red-200' : 'bg-gray-50'}`}>
                           <div className="flex justify-between items-start mb-3">
                             <div>
                               <p className="font-medium text-gray-900">
@@ -534,6 +529,11 @@ const ItemsTab = ({
                               <p className="text-xs text-gray-500 mt-1">
                                 {variantImages.length} image{variantImages.length !== 1 ? 's' : ''}
                               </p>
+                              {isLowStock && (
+                                <span className="inline-block mt-1 bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
+                                  Low Stock
+                                </span>
+                              )}
                             </div>
                             <button
                               onClick={() => console.log("Delete variant:", variant.id)}
@@ -549,7 +549,7 @@ const ItemsTab = ({
                               {variantImages.map((imageUrl, imgIndex) => (
                                 <div key={imgIndex} className="relative group">
                                   <img
-                                    src={`http://localhost:8000${imageUrl}`}
+                                    src={`${apiBaseUrl}${imageUrl}`}
                                     alt={`Variant image ${imgIndex + 1}`}
                                     className="w-16 h-16 object-cover rounded border"
                                   />
@@ -698,7 +698,6 @@ const ItemsTab = ({
   );
 };
 
-
 export default function AdminPanel() {
   const { user, logout } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
@@ -725,17 +724,18 @@ export default function AdminPanel() {
   const [editForm, setEditForm] = useState({
     title: '',
     description: '',
+    brand: '',
     price: 0,
     stock: 0,
     imageFile: null,
   });
-
 
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
     { id: "users", label: "User Management", icon: "👥" },
     { id: "orders", label: "Orders", icon: "📋" },
     { id: "items", label: "Manage Items", icon: "📦" },
+     { id: "categories", label: "Categories", icon: "🏷️" },
     { id: "promotions", label: "Promotions", icon: "🎫" },
   ];
 
@@ -746,7 +746,7 @@ export default function AdminPanel() {
           API.get("/users/"),
           API.get("/admin/items"),
           API.get("/notifications"),
-          getAdminCoupons() // Use the API function
+          getAdminCoupons()
         ]);
 
         setUsers(usersRes.data);
@@ -817,6 +817,7 @@ export default function AdminPanel() {
     setEditForm({
       title: item.title,
       description: item.description,
+      brand: item.brand || '',
       price: item.price,
       stock: item.stock,
       imageFile: null,
@@ -828,6 +829,7 @@ export default function AdminPanel() {
     setEditForm({
       title: '',
       description: '',
+      brand: '',
       price: 0,
       stock: 0,
       imageFile: null,
@@ -840,8 +842,7 @@ export default function AdminPanel() {
       const formData = new FormData();
       formData.append("title", editForm.title);
       formData.append("description", editForm.description);
-      formData.append("price", editForm.price);
-      formData.append("stock", editForm.stock);
+      formData.append("brand", editForm.brand);
 
       if (editForm.imageFile) {
         formData.append("image", editForm.imageFile);
@@ -868,7 +869,6 @@ export default function AdminPanel() {
       setErrMsg("Failed to update item.");
     }
   };
-
 
   const updateUserRole = async (id, newRole) => {
     try {
@@ -992,7 +992,7 @@ export default function AdminPanel() {
   const renderActiveTab = () => {
     switch (activeTab) {
       case "dashboard":
-        return <DashboardTab users={users} lowStockItems={lowStockItems} notifications={notifications} orders={orders} coupons={coupons} />;
+        return <DashboardTab users={users} items={items} orders={orders} coupons={coupons} />;
       case "users":
         return <UsersTab users={users} user={user} updateUserRole={updateUserRole} deleteUser={deleteUser} />;
       case "orders":
@@ -1010,6 +1010,8 @@ export default function AdminPanel() {
             cancelEdit={cancelEdit}
           />
         );
+      case "categories":
+        return <CategoriesManager />;
       case "promotions":
         return (
           <CouponsTable
@@ -1027,11 +1029,10 @@ export default function AdminPanel() {
           />
         );
       default:
-        return <DashboardTab users={users} lowStockItems={lowStockItems} notifications={notifications} orders={orders} coupons={coupons} />;
+        return <DashboardTab users={users} items={items} orders={orders} coupons={coupons} />;
     }
   };
 
-  // ... rest of the component (loading, error, and return JSX remains the same)
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -1108,6 +1109,7 @@ export default function AdminPanel() {
                 {activeTab === 'users' && 'Manage user roles and permissions'}
                 {activeTab === 'orders' && 'Manage platform orders'}
                 {activeTab === 'items' && 'Manage all items in the platform'}
+                {activeTab === 'categories' && 'Create and manage product categories'}
                 {activeTab === 'promotions' && 'Manage discount codes and promotions'}
               </p>
             </div>

@@ -35,9 +35,9 @@ export const CartProvider = ({ children }) => {
   };
 
   const addItem = useCallback(async (payload) => {
-    const { item_id, variant_id, quantity = 1 } = payload;
+    const { item_id,item_title, variant_id, quantity = 1 } = payload;
 
-    console.log("➕ addItem called with:", payload);
+    // console.log("➕ addItem called with:", payload);
 
     // For guest users: create a temporary ID
     const tempId = `temp-${Date.now()}-${Math.random()}`;
@@ -52,6 +52,7 @@ export const CartProvider = ({ children }) => {
     const newCartItem = {
       id: tempId,           // temporary ID for guest
       item_id,
+      item_title,
       variant_id,
       quantity,
       variant: variantData, // preserve variant data
@@ -111,7 +112,7 @@ export const CartProvider = ({ children }) => {
       const response = await getCartItems(authToken);
       const backendItems = response.data;
 
-      console.log("🛒 Backend cart items:", backendItems);
+      // console.log("🛒 Backend cart items:", backendItems);
 
       // Enhanced: Fetch variant data for each item
       const enhancedCart = {};
@@ -202,7 +203,7 @@ export const CartProvider = ({ children }) => {
     localStorage.setItem("cart", JSON.stringify({}));
   }, []);
   const removeItem = useCallback(async (cartItemId) => {
-    console.log("🗑️ removeItem called with:", cartItemId);
+    // console.log("🗑️ removeItem called with:", cartItemId);
 
     const itemToRemove = cart[cartItemId];
     if (!itemToRemove) return;
@@ -231,10 +232,10 @@ export const CartProvider = ({ children }) => {
 
   const updateItemQuantity = useCallback(
     async (cartItemId, quantity) => {
-      console.log("🎯 updateItemQuantity called:", { cartItemId, quantity });
+      // console.log("🎯 updateItemQuantity called:", { cartItemId, quantity });
 
       if (quantity <= 0) {
-        console.log("🎯 Quantity <= 0, calling removeItem");
+        // console.log("🎯 Quantity <= 0, calling removeItem");
         removeItem(cartItemId);
         return;
       }
@@ -255,7 +256,7 @@ export const CartProvider = ({ children }) => {
 
       if (user && authToken && !itemToUpdate.isTemp) {
         try {
-          console.log("🎯 Updating backend cart");
+          // console.log("🎯 Updating backend cart");
           await addOrUpdateCartItem({
             item_id: itemToUpdate.item_id,
             variant_id: itemToUpdate.variant_id,
@@ -284,13 +285,14 @@ export const CartProvider = ({ children }) => {
     () => ({
       cart,
       addItem,
+      mergeGuestCart,
       updateItemQuantity,
       removeItem,
       clearCart,
       loadingIds,
       fetchCartItems,
     }),
-    [cart, addItem, updateItemQuantity, removeItem, clearCart, loadingIds, fetchCartItems]
+    [cart, addItem, updateItemQuantity, removeItem, clearCart, loadingIds, fetchCartItems, mergeGuestCart]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
